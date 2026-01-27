@@ -1,16 +1,19 @@
 package com.studydocs.manager.dto;
 import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import com.studydocs.manager.validation.ValidGmail;
+import com.studydocs.manager.validation.ValidPhoneNumber;
 import java.util.Set;
 public class UserUpdateRequest {
-    @NotBlank(message = "Email must not be blank")
+
     @Email(message = "Email should be valid")
+    @ValidGmail(message = "Email @gmail.com Invalid. Format : username@gmail.com")
     private String email;
 
     @Size(min = 6, message = "Password must be at least 6 characters")
     private String password;
     private String fullname;
+    @ValidPhoneNumber(message = "Phonenumber Invalid. Please format  (Such as: +84123456789, 0123456789)")
     private String phone;
     private Boolean enabled;
     private Set<String> roles;

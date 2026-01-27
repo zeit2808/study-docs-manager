@@ -2,7 +2,6 @@ package com.studydocs.manager.controller;
 
 import com.studydocs.manager.dto.UserResponse;
 import com.studydocs.manager.dto.UserUpdateRequest;
-import com.studydocs.manager.entity.User;
 import com.studydocs.manager.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
