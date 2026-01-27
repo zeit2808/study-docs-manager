@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Pattern;
 import com.studydocs.manager.validation.ValidGmail;
 import com.studydocs.manager.validation.ValidPhoneNumber;
 import java.util.Set;
@@ -19,7 +20,11 @@ public class RegisterRequest {
     private String email;
 
     @NotBlank(message = "Password must not be blank")
-    @Size(min = 6, max = 100, message = "Password must be between 6 and 100 characters")
+    @Size(min = 8, max = 64, message = "Password must be between 8 and 64 characters")
+    @Pattern(
+            regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&.,;:_+\\-=^#()\\[\\]{}|<>]).{8,64}$",
+            message = "Password must have upper, lower, digit, special char, no spaces"
+    )
     private String password;
 
     private String fullname;
