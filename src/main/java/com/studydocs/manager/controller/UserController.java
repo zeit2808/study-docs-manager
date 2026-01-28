@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import com.studydocs.manager.search.UserSearchService;
 
 import java.util.List;
 @RestController
@@ -21,6 +22,28 @@ import java.util.List;
 public class UserController {
     @Autowired
     private UserService userService;
+    @Autowired(required = false)
+    private UserSearchService userSearchService;
+
+    @GetMapping("/search")
+    @Operation(summary = "Search users", description = "Search users by username, fullname or email using Elasticsearch")
+    @PreAuthorize("hasAnyRole('ADMIN','USER')")
+    public ResponseEntity<List<UserResponse>> searchUsers(@RequestParam("q") String keyword) {
+        if (userSearchService == null) {
+            // Fallback: search từ MySQL nếu ES không available
+            return ResponseEntity.ok(userService.getAllUsers().stream()
+                    .filter(user -> {
+                        String kw = keyword == null ? "" : keyword.toLowerCase();
+                        return (user.getUsename() != null && user.getUsename().toLowerCase().contains(kw)) ||
+                               (user.getFullname() != null && user.getFullname().toLowerCase().contains(kw)) ||
+                               (user.getEmail() != null && user.getEmail().toLowerCase().contains(kw));
+                    })
+                    .toList());
+        }
+        List<UserResponse> results = userSearchService.searchUsers(keyword);
+        return ResponseEntity.ok(results);
+    }
+
     @GetMapping
     @Operation(summary = "Get All Users", description = "Retrieve a list of all registered users")
     @PreAuthorize("hasAnyRole('ADMIN','USER')")

@@ -1,5 +1,5 @@
 package com.studydocs.manager.service;
-
+import com.studydocs.manager.search.UserSearchService;
 import com.studydocs.manager.dto.UserResponse;
 import com.studydocs.manager.dto.UserUpdateRequest;
 import com.studydocs.manager.entity.Role;
@@ -10,6 +10,8 @@ import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 
 import java.util.HashSet;
 import java.util.List;
@@ -24,18 +26,21 @@ public class UserService {
     private PasswordEncoder passwordEncoder;
     @Autowired
     private RoleRepository roleRepository;
-
+    @Autowired(required = false)
+    private UserSearchService userSearchService;
     public List<UserResponse> getAllUsers(){
         return userRepository.findAll().stream()
                 .map(this::convertToResponse)
                 .collect(Collectors.toList());
     }
+    @Cacheable(cacheNames = "usersById", key = "#id")
     public UserResponse getUserById(Long id){
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         return convertToResponse(user);
     }
     @Transactional
+    @CacheEvict(cacheNames = {"usersById", "usersByUsername"}, allEntries = true)
     public UserResponse updateUser(Long id, UserUpdateRequest updateRequest){
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -69,18 +74,27 @@ public class UserService {
                          .orElseThrow(()->new RuntimeException("Role "+roleName+" not found"));
                     roles.add(role);
             });
+            user.setRoles(roles);
         }
         User updatedUser = userRepository.save(user);
+        if (userSearchService != null) {
+            userSearchService.indexUser(updatedUser);
+        }
         return convertToResponse(updatedUser);
     }
     @Transactional
+    @CacheEvict(cacheNames = {"usersById", "usersByUsername"}, allEntries = true)
     public void deleteUser(Long id){
         if (!userRepository.existsById(id)){
             throw new RuntimeException("User not found");
         }
         userRepository.deleteById(id);
+        if (userSearchService != null) {
+            userSearchService.deleteFromIndex(id);
+        }
     }
     @Transactional
+    @Cacheable(cacheNames = "usersByUsername", key = "#username")
     public UserResponse getUserByUsername(String username){
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));

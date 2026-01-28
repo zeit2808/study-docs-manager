@@ -16,6 +16,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import com.studydocs.manager.search.UserSearchService;
+
 
 import java.util.HashSet;
 import java.util.Set;
@@ -33,6 +35,9 @@ public class AuthService {
     private PasswordEncoder passwordEncoder;
     @Autowired
     private JwtTokenProvider tokenProvider;
+    @Autowired(required = false)
+    private UserSearchService userSearchService;
+
 
     @Transactional
     public JwtResponse login(LoginRequest loginRequest) {
@@ -77,6 +82,11 @@ public class AuthService {
             });
         }
         user.setRoles(roles);
-        return userRepository.save(user);
+        User saved = userRepository.save(user);
+        // index vào Elasticsearch để hỗ trợ search nhanh (nếu ES available)
+        if (userSearchService != null) {
+            userSearchService.indexUser(saved);
+        }
+        return saved;
     }
 }
