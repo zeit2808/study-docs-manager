@@ -35,12 +35,22 @@ public class AuthController {
             Map<String, Object> body = new LinkedHashMap<>();
             body.put("status", 401);
             body.put("error", "Unauthorized");
-            body.put("message", "Username/password is incorrect");
+
+            // Nếu tài khoản đã bị khóa bởi Lockout Policy, trả thông báo rõ ràng
+            String errorMessage = e.getMessage();
+            if (errorMessage != null && errorMessage.contains("Account is locked")) {
+                body.put("message", errorMessage);
+                body.put("locked", true);
+            } else if (errorMessage != null && errorMessage.contains("User not found")) {
+                body.put("message", "Username/password is incorrect");
+            } else {
+                body.put("message", "Username/password is incorrect");
+            }
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
         }
     }
     @PostMapping("/register")
-    @Operation(summary = "User Registration", description = "Register a new user")
+    @Operation(summary = "User Registration", description = "Register a new user with default USER role. Roles in request will be ignored.")
     public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest registerRequest){
         try{
             var user = authService.register(registerRequest);

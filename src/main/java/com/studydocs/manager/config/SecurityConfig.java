@@ -57,6 +57,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/api-docs/**").permitAll()
+                        .requestMatchers("/static/avatars/**").permitAll() // Cho phép truy cập avatar công khai
+                        .requestMatchers("/api/profile/**").hasAnyRole("ADMIN", "USER")
                         .requestMatchers("/api/users/**").hasAnyRole("ADMIN", "USER")
                         .anyRequest().authenticated()
                 );

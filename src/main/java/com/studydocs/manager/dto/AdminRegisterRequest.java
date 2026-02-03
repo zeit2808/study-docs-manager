@@ -3,13 +3,14 @@ package com.studydocs.manager.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.Pattern;
 import com.studydocs.manager.validation.ValidGmail;
 import com.studydocs.manager.validation.ValidPhoneNumber;
 import java.util.Set;
 
-public class RegisterRequest {
+public class AdminRegisterRequest {
     @NotBlank(message = "Username must not be blank")
     @Size(min = 3, max = 50, message = "Username must be between 3 and 50 characters")
     private String username;
@@ -32,13 +33,13 @@ public class RegisterRequest {
     @JsonProperty("phone")
     @ValidPhoneNumber(message = "Invalid phone number format")
     private String Phone;
-    public RegisterRequest() {
-    }
 
-    public RegisterRequest(String username, String email, String password) {
-        this.username = username;
-        this.email = email;
-        this.password = password;
+    @NotNull(message = "Roles must not be null")
+    private Set<String> roles;
+
+    private Boolean enabled;
+
+    public AdminRegisterRequest() {
     }
 
     public String getUsername() {
@@ -80,4 +81,21 @@ public class RegisterRequest {
     public void setPhone(String phone) {
         Phone = phone;
     }
+
+    public Set<String> getRoles() {
+        return roles;
+    }
+
+    public void setRoles(Set<String> roles) {
+        this.roles = roles;
+    }
+
+    public Boolean getEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(Boolean enabled) {
+        this.enabled = enabled;
+    }
 }
+

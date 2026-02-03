@@ -1,7 +1,10 @@
 package com.studydocs.manager.controller;
 
+import com.studydocs.manager.dto.AdminRegisterRequest;
 import com.studydocs.manager.dto.UserResponse;
 import com.studydocs.manager.dto.UserUpdateRequest;
+import com.studydocs.manager.entity.User;
+import com.studydocs.manager.service.AuthService;
 import com.studydocs.manager.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -24,6 +27,32 @@ public class UserController {
     private UserService userService;
     @Autowired(required = false)
     private UserSearchService userSearchService;
+    @Autowired
+    private AuthService authService;
+
+    @PostMapping
+    @Operation(summary = "Register User by Admin", description = "Admin can register a new user with any role")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UserResponse> registerUserByAdmin(@Valid @RequestBody AdminRegisterRequest adminRegisterRequest) {
+        try {
+            User user = authService.registerByAdmin(adminRegisterRequest);
+            UserResponse response = new UserResponse();
+            response.setId(user.getId());
+            response.setUsename(user.getUsername());
+            response.setEmail(user.getEmail());
+            response.setFullname(user.getFullname());
+            response.setPhone(user.getPhone());
+            response.setEnabled(user.getEnabled());
+            response.setCreatedAt(user.getCreatedAt());
+            response.setUpdateAt(user.getUpdateAt());
+            response.setRoles(user.getRoles().stream()
+                    .map(role -> role.getName())
+                    .collect(java.util.stream.Collectors.toSet()));
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+    }
 
     @GetMapping("/search")
     @Operation(summary = "Search users", description = "Search users by username, fullname or email using Elasticsearch")
@@ -77,8 +106,8 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Update User Information", description = "Admin and User can update user information")
-    @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
+    @Operation(summary = "Update User Information", description = "Only ADMIN can update user information. Regular users should use /api/profile endpoint to update their own profile.")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserResponse> updateUser(
             @PathVariable Long id,
             @Valid @RequestBody UserUpdateRequest updateRequest) {

@@ -40,6 +40,24 @@ public class User {
         this.email = email;
         this.password = password;
     }
+    @Column(name = "avatar_url")
+    private String avatarUrl;
+
+    private Integer failedLoginAttempts = 0;
+    private java.time.LocalDateTime lockedUntil;
+
+    public Integer getFailedLoginAttempts() { return failedLoginAttempts; }
+    public void setFailedLoginAttempts(Integer failedLoginAttempts) { this.failedLoginAttempts = failedLoginAttempts; }
+
+    public LocalDateTime getLockedUntil() { return lockedUntil; }
+    public void setLockedUntil(LocalDateTime lockedUntil) { this.lockedUntil = lockedUntil; }
+    public String getAvatarUrl() {
+        return avatarUrl;
+    }
+
+    public void setAvatarUrl(String avatarUrl) {
+        this.avatarUrl = avatarUrl;
+    }
 
     public Long getId() {
         return id;

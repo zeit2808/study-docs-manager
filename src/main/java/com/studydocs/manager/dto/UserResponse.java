@@ -13,6 +13,16 @@ public class UserResponse {
     private LocalDateTime updateAt;
     private LocalDateTime createdAt;
     private Set<String> roles;
+    private String avatarUrl;
+
+    public String getAvatarUrl() {
+        return avatarUrl;
+    }
+
+    public void setAvatarUrl(String avatarUrl) {
+        this.avatarUrl = avatarUrl;
+    }
+
     public UserResponse() {
     }
     public Long getId() {
