@@ -107,68 +107,6 @@ public class AuthService {
             throw new RuntimeException("Invalid username or password");
         }
     }
-
-
-    public java.time.LocalDateTime incrementFailedLoginAttempts(String username) {
-        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
-        transactionTemplate.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        
-        return transactionTemplate.execute(status -> {
-            try {
-
-                User user = userRepository.findByUsername(username)
-                        .orElseThrow(() -> new RuntimeException("User not found"));
-                
-                int currentAttempts = user.getFailedLoginAttempts() == null ? 0 : user.getFailedLoginAttempts();
-                int newAttempts = currentAttempts + 1;
-
-                int MAX_ATTEMPTS = 5;
-                java.time.LocalDateTime lockTime = null;
-                if (newAttempts >= MAX_ATTEMPTS) {
-                    int LOCK_MINUTES = 15;
-                    lockTime = java.time.LocalDateTime.now().plusMinutes(LOCK_MINUTES);
-                }
-
-
-                int rowsUpdated = userRepository.updateFailedLoginAttempts(username, newAttempts, lockTime);
-                
-
-                entityManager.flush();
-                
-
-                System.out.println("DEBUG: incrementFailedLoginAttempts - username: " + username + 
-                                 ", currentAttempts: " + currentAttempts + 
-                                 ", newAttempts: " + newAttempts + 
-                                 ", rowsUpdated: " + rowsUpdated +
-                                 ", lockTime: " + lockTime);
-                
-                // Clear persistence context để load lại từ DB
-                entityManager.clear();
-                
-                // Verify: Load lại user từ DB để xác nhận đã update
-                User verifyUser = userRepository.findByUsername(username)
-                        .orElseThrow(() -> new RuntimeException("User not found after update"));
-                System.out.println("DEBUG: Verification - username: " + verifyUser.getUsername() + 
-                                 ", failedLoginAttempts: " + verifyUser.getFailedLoginAttempts() + 
-                                 ", lockedUntil: " + verifyUser.getLockedUntil());
-                
-                // Transaction sẽ tự động commit khi method này return
-                return lockTime;
-            } catch (Exception e) {
-                System.err.println("ERROR in incrementFailedLoginAttempts: " + e.getMessage());
-                e.printStackTrace();
-                status.setRollbackOnly();
-                throw e;
-            }
-        });
-    }
-
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void resetFailedLoginAttempts(Long userId) {
-        userRepository.resetFailedLoginAttempts(userId);
-    }
-
     @Transactional
     public User register(RegisterRequest registerRequest) {
         if (userRepository.existsByUsername(registerRequest.getUsername())) {
