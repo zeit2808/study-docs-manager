@@ -5,11 +5,11 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "document_favorites", indexes = {
-        @Index(name = "idx_document_favorites_user_id", columnList = "user_id, created_at"),
-        @Index(name = "idx_document_favorites_document_id", columnList = "document_id")
+@Table(name = "document_favourites", indexes = {
+        @Index(name = "idx_document_favourites_user_id", columnList = "user_id, created_at"),
+        @Index(name = "idx_document_favourites_document_id", columnList = "document_id")
 }, uniqueConstraints = {
-        @UniqueConstraint(name = "uk_document_favorite", columnNames = {"document_id", "user_id"})
+        @UniqueConstraint(name = "uk_document_favourite", columnNames = {"document_id", "user_id"})
 })
 
 public class DocumentFavourite {

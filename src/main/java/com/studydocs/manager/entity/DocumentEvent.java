@@ -82,25 +82,26 @@ public class DocumentEvent {
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
+    // Enum for Event Types
+    public enum DocumentEventType {
+        CREATED,
+        UPDATED,
+        DELETED,
+        RESTORED,
+        VERSION_CREATED,
+        VERSION_RESTORED,
+        PUBLISHED,
+        ARCHIVED,
+        SHARED,
+        VIEWED,
+        DOWNLOADED,
+        RATED,
+        SUBJECT_ADDED,
+        SUBJECT_REMOVED,
+        TAG_ADDED,
+        TAG_REMOVED
+    }
 }
 
-// Enum for Event Types
-enum DocumentEventType {
-    CREATED,
-    UPDATED,
-    DELETED,
-    RESTORED,
-    VERSION_CREATED,
-    VERSION_RESTORED,
-    PUBLISHED,
-    ARCHIVED,
-    SHARED,
-    VIEWED,
-    DOWNLOADED,
-    RATED,
-    SUBJECT_ADDED,
-    SUBJECT_REMOVED,
-    TAG_ADDED,
-    TAG_REMOVED
-}
+
 

@@ -66,7 +66,7 @@ public class Document {
     private Integer downloadCount = 0;
 
     @Column(name = "favorite_count")
-    private Integer favoriteCount = 0;
+    private Integer favouriteCount = 0;
 
     @Column(name = "rating_average", precision = 3, scale = 2)
     private java.math.BigDecimal ratingAverage = java.math.BigDecimal.ZERO;
@@ -187,8 +187,8 @@ public class Document {
     public Integer getDownloadCount() { return downloadCount; }
     public void setDownloadCount(Integer downloadCount) { this.downloadCount = downloadCount; }
 
-    public Integer getFavoriteCount() { return favoriteCount; }
-    public void setFavoriteCount(Integer favoriteCount) { this.favoriteCount = favoriteCount; }
+    public Integer getFavouriteCount() { return favouriteCount; }
+    public void setFavouriteCount(Integer favoriteCount) { this.favouriteCount = favoriteCount; }
 
     public java.math.BigDecimal getRatingAverage() { return ratingAverage; }
     public void setRatingAverage(java.math.BigDecimal ratingAverage) { this.ratingAverage = ratingAverage; }
@@ -243,13 +243,17 @@ public class Document {
 
     public Set<Document> getChildDocuments() { return childDocuments; }
     public void setChildDocuments(Set<Document> childDocuments) { this.childDocuments = childDocuments; }
+
+    // Enums
+    public enum  DocumentStatus {
+        DRAFT, PUBLISHED, ARCHIVED, DELETED
+    }
+    public enum DocumentVisibility {
+        PRIVATE, PUBLIC, SHARED
+    }
 }
 
-// Enums
-enum DocumentStatus {
-    DRAFT, PUBLISHED, ARCHIVED, DELETED
-}
 
-enum DocumentVisibility {
-    PRIVATE, PUBLIC, SHARED
-}
+
+
+
