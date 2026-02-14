@@ -11,8 +11,8 @@ public class DocumentCreateRequest {
     private String title;
 
 
-    @Size(max = 500,message = "Decription must not exceed 500 characters")
-    private String decription;
+    @Size(max = 500, message = "Description must not exceed 500 characters")
+    private String description;
 
     private String content;
 
@@ -42,12 +42,12 @@ public class DocumentCreateRequest {
         this.title = title;
     }
 
-    public String getDecription() {
-        return decription;
+    public String getDescription() {
+        return description;
     }
 
-    public void setDecription(String decription) {
-        this.decription = decription;
+    public void setDescription(String description) {
+        this.description = description;
     }
 
     public String getContent() {

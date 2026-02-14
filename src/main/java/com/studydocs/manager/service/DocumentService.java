@@ -60,7 +60,7 @@ public class DocumentService {
         Document document = new Document();
         document.setUser(user);
         document.setTitle(request.getTitle());
-        document.setDescription(request.getDecription());
+        document.setDescription(request.getDescription());
         document.setContent(request.getContent());
         document.setFileUrl(request.getFileUrl());
         document.setFileName(request.getFileName());
@@ -160,10 +160,6 @@ public class DocumentService {
         }
         if (request.getIsFeatured() != null){
             document.setIsFeatured((request.getIsFeatured()));
-        }
-
-        if (request.getFolderId() != null){
-            document.setIsFeatured(request.getIsFeatured());
         }
 
         if (request.getFolderId() != null){
@@ -273,8 +269,10 @@ public class DocumentService {
                 .orElseThrow(() -> new RuntimeException("Document not found"));
 
         Long currentUserId = securityUtils.getCurrentUserId();
-        if (document.getVisibility() == null || !document.getUser().getId().equals(currentUserId)){
-            throw new RuntimeException("Document is private");
+        // Allow access if: document is PUBLIC, OR user is the owner
+        if (document.getVisibility() != Document.DocumentVisibility.PUBLIC 
+            && (currentUserId == null || !document.getUser().getId().equals(currentUserId))){
+            throw new RuntimeException("You don't have permission to access this document");
         }
 
         incrementViewCount(document);
@@ -342,7 +340,7 @@ public class DocumentService {
             documentSubjectRepository.save(docSubject);
         }
     }
-    private void assignTags(Document document,Set<String> tagNames){
+    private void assignTags(Document document, Set<String> tagNames){
         for (String tagName : tagNames){
             Tag tag = tagRepository.findByName(tagName)
                     .orElseGet(() -> {
@@ -351,6 +349,12 @@ public class DocumentService {
                         newTag.setSlug(generateSlug(tagName));
                         return tagRepository.save(newTag);
                     });
+            
+            // Create the DocumentTag relation
+            DocumentTag docTag = new DocumentTag();
+            docTag.setDocument(document);
+            docTag.setTag(tag);
+            documentTagRepository.save(docTag);
         }
     }
 
@@ -430,7 +434,7 @@ public class DocumentService {
 
         response.setCreatedAt(document.getCreatedAt());
         if (document.getCreatedBy() != null){
-            response.setCreatedByUsername(document.getUpdatedBy().getUsername());
+            response.setCreatedByUsername(document.getCreatedBy().getUsername());
         }
         response.setUpdatedAt(document.getUpdatedAt());
         if (document.getUpdatedBy() != null){
