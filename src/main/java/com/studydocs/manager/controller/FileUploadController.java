@@ -2,6 +2,8 @@ package com.studydocs.manager.controller;
 
 import com.studydocs.manager.config.StorageProperties;
 import com.studydocs.manager.dto.BatchUploadResponse;
+import com.studydocs.manager.dto.ErrorResponse;
+import com.studydocs.manager.dto.FileDeleteResponse;
 import com.studydocs.manager.dto.FileMetadata;
 import com.studydocs.manager.dto.FileUploadResponse;
 import com.studydocs.manager.dto.FileUploadResult;
@@ -14,12 +16,17 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -130,8 +137,9 @@ public class FileUploadController {
                                     metadata.getTitle(), metadata.getPageCount());
                         } catch (Exception e) {
                             // Don't fail upload if metadata extraction fails
-                            logger.warn("Failed to extract metadata from {}: {}",
-                                    originalFileName, e.getMessage());
+                            // Common errors: TTF font parsing, corrupted documents, etc.
+                            logger.warn("Failed to extract metadata from {}: {} (Type: {})",
+                                    originalFileName, e.getMessage(), e.getClass().getSimpleName());
                         }
                     }
 
@@ -145,11 +153,9 @@ public class FileUploadController {
                     response.setFileSize(file.getSize());
                     response.setFileType(file.getContentType());
 
-                    // Extract objectName from fileUrl
-                    // Note: This logic works for MinIO URLs. For other providers, might need
-                    // adjustment
-                    String objectName = storageProperties.getDocumentsFolder() +
-                            fileUrl.substring(fileUrl.lastIndexOf("/") + 1);
+                    // Extract objectName from fileUrl (without query parameters)
+                    // Parse URL to get clean object name: bucket-name/folder/filename.ext
+                    String objectName = extractCleanObjectName(fileUrl, storageProperties.getDocumentsFolder());
                     response.setObjectName(objectName);
                     response.setMetadata(metadata);
 
@@ -219,9 +225,8 @@ public class FileUploadController {
             response.setFileSize(file.getSize());
             response.setFileType(file.getContentType());
 
-            // Extract objectName from fileUrl
-            String objectName = storageProperties.getThumbnailsFolder() +
-                    fileUrl.substring(fileUrl.lastIndexOf("/") + 1);
+            // Extract objectName from fileUrl (without query parameters)
+            String objectName = extractCleanObjectName(fileUrl, storageProperties.getThumbnailsFolder());
             response.setObjectName(objectName);
 
             logger.info("Thumbnail upload SUCCESS: {}", originalFileName);
@@ -233,6 +238,150 @@ public class FileUploadController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Upload failed: " + e.getMessage());
         }
+    }
+
+    /**
+     * Download file từ storage
+     * 
+     * Flow: Client gửi objectName → Validate → Download từ storage → Trả về file
+     * 
+     * @param objectName Object name hoặc URL đầy đủ của file cần download
+     * @return File content với headers phù hợp
+     */
+    @GetMapping("/download")
+    @Operation(summary = "Download file from storage", description = "Download a file from storage by providing the object name or full URL. Returns the file content with appropriate headers or error message.")
+    @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
+    public ResponseEntity<?> downloadFile(
+            @Parameter(description = "Object name or full URL of the file to download", required = true) @RequestParam("objectName") String objectName) {
+
+        try {
+            logger.info("Downloading file: {}", objectName);
+
+            // Step 1: Validate objectName
+            if (objectName == null || objectName.trim().isEmpty()) {
+                ErrorResponse error = new ErrorResponse(
+                        400,
+                        "Bad Request",
+                        "Object name is required");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(error);
+            }
+
+            // Step 2: Check if file exists
+            if (!storageProvider.fileExists(objectName)) {
+                logger.warn("File not found: {}", objectName);
+                ErrorResponse error = new ErrorResponse(
+                        404,
+                        "Not Found",
+                        "File not found: " + objectName);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(error);
+            }
+
+            // Step 3: Download file as stream
+            InputStream fileStream = storageProvider.downloadFileAsStream(objectName);
+            Resource resource = new InputStreamResource(fileStream);
+
+            // Step 4: Extract filename for Content-Disposition header
+            String filename = objectName;
+            if (objectName.contains("/")) {
+                filename = objectName.substring(objectName.lastIndexOf("/") + 1);
+            }
+            // Remove UUID prefix if exists (format: uuid_originalname.ext)
+            if (filename.contains("_")) {
+                int firstUnderscore = filename.indexOf("_");
+                filename = filename.substring(firstUnderscore + 1);
+            }
+
+            // Step 5: Build response with headers
+            HttpHeaders headers = new HttpHeaders();
+            headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"");
+
+            logger.info("File download SUCCESS: {}", objectName);
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .body(resource);
+
+        } catch (Exception e) {
+            logger.error("File download FAILED: {} - Error: {}", objectName, e.getMessage(), e);
+            ErrorResponse error = new ErrorResponse(
+                    500,
+                    "Internal Server Error",
+                    "Failed to download file: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(error);
+        }
+    }
+
+    /**
+     * Xóa file từ storage
+     * 
+     * Flow: Client gửi objectName → Validate → Xóa từ storage → Trả về confirmation
+     * 
+     * @param objectName Object name hoặc URL đầy đủ của file cần xóa
+     * @return FileDeleteResponse với thông tin về file đã xóa
+     */
+    @DeleteMapping("/delete")
+    @Operation(summary = "Delete file from storage", description = "Delete a file from storage by providing the object name or full URL. Returns confirmation of deletion.")
+    @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
+    public ResponseEntity<?> deleteFile(
+            @Parameter(description = "Object name or full URL of the file to delete", required = true) @RequestParam("objectName") String objectName) {
+
+        try {
+            logger.info("Deleting file: {}", objectName);
+
+            // Step 1: Check if file exists
+            if (!storageProvider.fileExists(objectName)) {
+                logger.warn("File not found for deletion: {}", objectName);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new FileDeleteResponse(false, "File not found: " + objectName, null));
+            }
+
+            // Step 2: Delete file
+            storageProvider.deleteFile(objectName);
+
+            // Step 3: Build success response
+            FileDeleteResponse response = new FileDeleteResponse(
+                    true,
+                    "File deleted successfully",
+                    objectName);
+
+            logger.info("File deletion SUCCESS: {}", objectName);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            logger.error("File deletion FAILED: {} - Error: {}", objectName, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new FileDeleteResponse(false, "Failed to delete file: " + e.getMessage(), objectName));
+        }
+    }
+
+    /**
+     * Extract clean object name from presigned URL
+     * 
+     * Removes query parameters (?X-Amz-...) from presigned URLs to get clean object
+     * name
+     * 
+     * @param fileUrl Full presigned URL or simple URL
+     * @param folder  Folder prefix (e.g., "documents/", "thumbnails/")
+     * @return Clean object name without query parameters
+     */
+    private String extractCleanObjectName(String fileUrl, String folder) {
+        // Extract filename from URL (part after last /)
+        String filename = fileUrl.substring(fileUrl.lastIndexOf("/") + 1);
+
+        // Remove query parameters if present (presigned URLs have ?X-Amz-...)
+        if (filename.contains("?")) {
+            filename = filename.substring(0, filename.indexOf("?"));
+        }
+
+        return folder + filename;
     }
 
     /**
