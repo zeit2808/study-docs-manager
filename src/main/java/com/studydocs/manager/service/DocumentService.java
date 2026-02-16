@@ -5,6 +5,7 @@ import com.studydocs.manager.dto.DocumentResponse;
 import com.studydocs.manager.dto.DocumentUpdateRequest;
 import com.studydocs.manager.entity.*;
 import com.studydocs.manager.repository.*;
+import com.studydocs.manager.search.DocumentIndexingService;
 import com.studydocs.manager.security.SecurityUtils;
 import jakarta.transaction.Transactional;
 import org.slf4j.LoggerFactory;
@@ -47,6 +48,9 @@ public class DocumentService {
 
     @Autowired(required = false)
     private DocumentEventService documentEventService;
+
+    @Autowired(required = false)
+    private DocumentIndexingService documentIndexingService;
 
     @Transactional
     public DocumentResponse createDocument(DocumentCreateRequest request) {
@@ -93,7 +97,12 @@ public class DocumentService {
 
         logEvent(saved, DocumentEvent.DocumentEventType.CREATED, "Document created");
 
-        logger.info("Document created - id: {},title: {}, userId: {}, saved.getId(), saved.getTitle(), currentUserId");
+        // Index document nếu status = PUBLISHED (mặc dù create thì status = DRAFT)
+        if (documentIndexingService != null && saved.getStatus() == Document.DocumentStatus.PUBLISHED) {
+            documentIndexingService.indexDocument(saved);
+        }
+
+        logger.info("Document created - id: {},title: {}, userId: {}", saved.getId(), saved.getTitle(), currentUserId);
         return convertToResponse(saved);
     }
 
@@ -198,6 +207,11 @@ public class DocumentService {
         // Log event
         logEvent(saved, DocumentEvent.DocumentEventType.UPDATED, "Document updated");
 
+        // Update search index (sẽ tự động xóa nếu không còn PUBLISHED)
+        if (documentIndexingService != null) {
+            documentIndexingService.updateIndex(saved);
+        }
+
         logger.info("Document updated - id: {}, userId: {}", id, currentUserId);
 
         return convertToResponse(saved);
@@ -230,6 +244,11 @@ public class DocumentService {
         documentRepository.save(document);
         logEvent(document, DocumentEvent.DocumentEventType.DELETED, "Document deleted");
 
+        // Remove from search index
+        if (documentIndexingService != null) {
+            documentIndexingService.deleteFromIndex(id);
+        }
+
         logger.info("Document deleted (soft) - id: {}, userId: {}", id, currentUserId);
     }
 
@@ -260,6 +279,11 @@ public class DocumentService {
 
         // Log event
         logEvent(saved, DocumentEvent.DocumentEventType.RESTORED, "Document restored");
+
+        // Re-index document nếu status = PUBLISHED (có thể khôi phục thành DRAFT)
+        if (documentIndexingService != null && saved.getStatus() == Document.DocumentStatus.PUBLISHED) {
+            documentIndexingService.indexDocument(saved);
+        }
 
         logger.info("Document restored - id: {}, userId: {}", id, currentUserId);
 

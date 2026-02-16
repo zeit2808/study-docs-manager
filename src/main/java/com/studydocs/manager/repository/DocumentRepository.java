@@ -84,4 +84,6 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
 
         // Cleanup query: Find old deleted documents with files
         List<Document> findByDeletedAtBeforeAndObjectNameIsNotNull(LocalDateTime cutoffDate);
+        Page<Document> findByStatus(Document.DocumentStatus status, Pageable pageable);
+        List<Document> findByUserIdAndStatus(Long userId, Document.DocumentStatus status);
 }

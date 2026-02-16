@@ -1,0 +1,92 @@
+{
+  "analysis": {
+    "analyzer": {
+      "vietnamese_analyzer": {
+        "type": "custom",
+        "tokenizer": "icu_tokenizer",
+        "filter": [
+          "lowercase",
+          "icu_folding",
+          "vietnamese_stop",
+          "vietnamese_synonym"
+        ]
+      },
+      "autocomplete_analyzer": {
+        "type": "custom",
+        "tokenizer": "standard",
+        "filter": [
+          "lowercase",
+          "autocomplete_filter"
+        ]
+      }
+    },
+    "filter": {
+      "vietnamese_stop": {
+        "type": "stop",
+        "stopwords": [
+          "và",
+          "của",
+          "có",
+          "được",
+          "cho",
+          "trong",
+          "là",
+          "các",
+          "với",
+          "một",
+          "này",
+          "đó",
+          "những",
+          "từ",
+          "người",
+          "không",
+          "theo",
+          "để",
+          "về",
+          "hoặc",
+          "tại",
+          "khi",
+          "nếu",
+          "như",
+          "sau",
+          "trước",
+          "đã",
+          "sẽ",
+          "cũng",
+          "còn",
+          "thì",
+          "đang",
+          "bị",
+          "ra",
+          "vào"
+        ]
+      },
+      "vietnamese_synonym": {
+        "type": "synonym",
+        "synonyms": [
+          "máy tính, máy vi tính, computer",
+          "điện thoại, phone, smartphone",
+          "tài liệu, document, doc",
+          "báo cáo, report",
+          "nghiên cứu, research, study",
+          "giáo trình, textbook, sách giáo khoa",
+          "bài giảng, lecture, lecture notes",
+          "đề thi, exam, test, kiểm tra",
+          "luận văn, thesis, dissertation",
+          "khóa luận, capstone, đồ án"
+        ]
+      },
+      "autocomplete_filter": {
+        "type": "edge_ngram",
+        "min_gram": 2,
+        "max_gram": 20
+      }
+    }
+  },
+  "index": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "max_result_window": 10000,
+    "refresh_interval": "1s"
+  }
+}

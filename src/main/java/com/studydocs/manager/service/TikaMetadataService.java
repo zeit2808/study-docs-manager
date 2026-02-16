@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.xml.sax.ContentHandler;
 
 import java.io.InputStream;
 import java.util.HashMap;
@@ -164,25 +165,6 @@ public class TikaMetadataService {
      * @param maxLength Giới hạn độ dài text (characters)
      * @return Text content extracted
      */
-    public String extractText(MultipartFile file, int maxLength) {
-        try (InputStream inputStream = file.getInputStream()) {
-            BodyContentHandler handler = new BodyContentHandler(maxLength);
-            Parser parser = new AutoDetectParser();
-            Metadata metadata = new Metadata();
-            ParseContext context = new ParseContext();
-
-            metadata.set("resourceName", file.getOriginalFilename());
-            parser.parse(inputStream, handler, metadata, context);
-
-            return handler.toString();
-
-        } catch (Exception e) {
-            logger.error("Error extracting text from file: {} - {}",
-                    file.getOriginalFilename(), e.getMessage());
-            return null;
-        }
-    }
-
     /**
      * Detect MIME type của file
      * 
@@ -213,5 +195,40 @@ public class TikaMetadataService {
     private String getMetadataValue(Metadata metadata, String name) {
         String value = metadata.get(name);
         return (value != null && !value.trim().isEmpty()) ? value.trim() : null;
+    }
+
+    public String extractText(InputStream inputStream, int maxLength, String resourceName) {
+        if (inputStream == null)
+            return null;
+
+        ContentHandler handler = new BodyContentHandler(maxLength); // Declare handler outside try for scope
+
+        try {
+            Parser parser = new AutoDetectParser();
+            Metadata metadata = new Metadata();
+            ParseContext context = new ParseContext();
+
+            if (resourceName != null && !resourceName.isBlank()) {
+                metadata.set("resourceName", resourceName);
+
+            }
+            parser.parse(inputStream, handler, metadata, context);
+            return handler.toString();
+
+        } catch (org.apache.tika.exception.WriteLimitReachedException e) {
+            // This is NOT an error - it means we successfully extracted up to the limit
+            logger.debug("Content extraction reached limit of {} characters for {}. Extracted text up to limit.",
+                    maxLength, resourceName);
+            // The handler still contains the text up to the limit, so return it
+            return handler.toString();
+        } catch (Exception e) {
+            logger.error("Error extracting text from stream: {} - {}", resourceName, e.getMessage(), e);
+            return null;
+        }
+    }
+
+    // tiện dùng khi không cần resourceName
+    public String extractText(InputStream inputStream, int maxLength) {
+        return extractText(inputStream, maxLength, null);
     }
 }
