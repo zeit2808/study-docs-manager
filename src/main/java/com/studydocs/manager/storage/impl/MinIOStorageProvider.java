@@ -79,6 +79,13 @@ public class MinIOStorageProvider implements StorageProvider {
         try {
             String objectName = extractObjectName(objectNameOrUrl);
 
+            // URL decode objectName để xử lý %20 và các ký tự đặc biệt khác
+            try {
+                objectName = java.net.URLDecoder.decode(objectName, "UTF-8");
+            } catch (Exception e) {
+                logger.warn("Failed to URL decode objectName, using as-is: {}", objectName);
+            }
+
             logger.info("Deleting file from MinIO: {}", objectName);
 
             minioClient.removeObject(

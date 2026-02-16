@@ -18,7 +18,6 @@ import java.time.LocalDateTime;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-
 @Service
 public class DocumentService {
     private static final Logger logger = LoggerFactory.getLogger(DocumentService.class);
@@ -50,9 +49,9 @@ public class DocumentService {
     private DocumentEventService documentEventService;
 
     @Transactional
-    public DocumentResponse createDocument(DocumentCreateRequest request){
+    public DocumentResponse createDocument(DocumentCreateRequest request) {
         Long currentUserId = securityUtils.getCurrentUserId();
-        if (currentUserId == null){
+        if (currentUserId == null) {
             throw new RuntimeException("User not authenticated");
         }
         User user = userRepository.findById(currentUserId)
@@ -63,6 +62,7 @@ public class DocumentService {
         document.setDescription(request.getDescription());
         document.setContent(request.getContent());
         document.setFileUrl(request.getFileUrl());
+        document.setObjectName(request.getObjectName());
         document.setFileName(request.getFileName());
         document.setFileSize(request.getFileSize());
         document.setFileType(request.getFileType());
@@ -72,10 +72,10 @@ public class DocumentService {
         document.setVisibility(Document.DocumentVisibility.PRIVATE);
         document.setCreatedBy(user);
 
-        if (request.getFolderId() != null){
+        if (request.getFolderId() != null) {
             Folder folder = folderRepository.findById(request.getFolderId())
                     .orElseThrow(() -> new RuntimeException("Folder not found"));
-            if (!folder.getUser().getId().equals(currentUserId)){
+            if (!folder.getUser().getId().equals(currentUserId)) {
                 throw new RuntimeException("Folder does not belong to current user");
             }
             document.setFolder(folder);
@@ -83,34 +83,34 @@ public class DocumentService {
 
         Document saved = documentRepository.save(document);
 
-        if (request.getSubjectIds() != null && !request.getSubjectIds().isEmpty()){
-            assignSubjects(saved,request.getSubjectIds());
+        if (request.getSubjectIds() != null && !request.getSubjectIds().isEmpty()) {
+            assignSubjects(saved, request.getSubjectIds());
         }
 
-        if (request.getTagNames() != null && !request.getTagNames().isEmpty()){
-            assignTags(saved,request.getTagNames());
+        if (request.getTagNames() != null && !request.getTagNames().isEmpty()) {
+            assignTags(saved, request.getTagNames());
         }
 
-        logEvent(saved, DocumentEvent.DocumentEventType.CREATED,"Document created");
+        logEvent(saved, DocumentEvent.DocumentEventType.CREATED, "Document created");
 
         logger.info("Document created - id: {},title: {}, userId: {}, saved.getId(), saved.getTitle(), currentUserId");
-        return  convertToResponse(saved);
+        return convertToResponse(saved);
     }
 
     @Transactional
-    public DocumentResponse updateDocument(Long id, DocumentUpdateRequest request){
+    public DocumentResponse updateDocument(Long id, DocumentUpdateRequest request) {
         Long currentUserId = securityUtils.getCurrentUserId();
-        if (currentUserId == null){
-            throw  new RuntimeException("User not authenticated");
+        if (currentUserId == null) {
+            throw new RuntimeException("User not authenticated");
         }
 
         Document document = documentRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new RuntimeException("Document not found"));
 
-        if (!document.getUser().getId().equals(currentUserId)){
+        if (!document.getUser().getId().equals(currentUserId)) {
             boolean isAdmin = document.getUser().getRoles().stream()
                     .anyMatch(role -> role.getName().equals("ADMIN"));
-            if (!isAdmin){
+            if (!isAdmin) {
                 throw new RuntimeException("You don't have permission to update this document");
             }
         }
@@ -129,6 +129,9 @@ public class DocumentService {
         if (request.getFileUrl() != null) {
             document.setFileUrl(request.getFileUrl());
         }
+        if (request.getObjectName() != null) {
+            document.setObjectName(request.getObjectName());
+        }
         if (request.getFileName() != null) {
             document.setFileName(request.getFileName());
         }
@@ -144,43 +147,42 @@ public class DocumentService {
         if (request.getLanguage() != null) {
             document.setLanguage(request.getLanguage());
         }
-        if (request.getStatus() != null){
-            try{
+        if (request.getStatus() != null) {
+            try {
                 document.setStatus(Document.DocumentStatus.valueOf(request.getStatus()));
-            } catch (IllegalArgumentException e){
-                throw  new RuntimeException(("Invalid status: " + request.getStatus()));
+            } catch (IllegalArgumentException e) {
+                throw new RuntimeException(("Invalid status: " + request.getStatus()));
             }
         }
-        if (request.getVisibility() != null){
+        if (request.getVisibility() != null) {
             try {
                 document.setVisibility(Document.DocumentVisibility.valueOf(request.getVisibility()));
-            } catch (IllegalArgumentException e){
+            } catch (IllegalArgumentException e) {
                 throw new RuntimeException("Invalid visibility: " + request.getVisibility());
             }
         }
-        if (request.getIsFeatured() != null){
+        if (request.getIsFeatured() != null) {
             document.setIsFeatured((request.getIsFeatured()));
         }
 
-        if (request.getFolderId() != null){
+        if (request.getFolderId() != null) {
             Folder folder = folderRepository.findById(request.getFolderId())
                     .orElseThrow(() -> new RuntimeException("Folder not found"));
-            if (!folder.getUser().getId().equals(currentUserId)){
-                throw  new RuntimeException("Folder does not belong to current user");
+            if (!folder.getUser().getId().equals(currentUserId)) {
+                throw new RuntimeException("Folder does not belong to current user");
             }
             document.setFolder(folder);
-        }
-        else if (request.getFolderId() == null && document.getFolder() != null){
+        } else if (request.getFolderId() == null && document.getFolder() != null) {
             document.setFolder(null);
         }
 
         document.setUpdatedBy(currentUser);
         Document saved = documentRepository.save(document);
-        if (request.getSubjectIds() != null){
+        if (request.getSubjectIds() != null) {
             document.getDocumentSubjects().clear();
             documentSubjectRepository.deleteAll(document.getDocumentSubjects());
-            if (!request.getSubjectIds().isEmpty()){
-                assignSubjects(saved,request.getSubjectIds());
+            if (!request.getSubjectIds().isEmpty()) {
+                assignSubjects(saved, request.getSubjectIds());
             }
         }
 
@@ -202,19 +204,19 @@ public class DocumentService {
     }
 
     @Transactional
-    public void deleteDocument(Long id){
+    public void deleteDocument(Long id) {
         Long currentUserId = securityUtils.getCurrentUserId();
-        if (currentUserId == null){
+        if (currentUserId == null) {
             throw new RuntimeException("User not authenticated");
         }
 
         Document document = documentRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new RuntimeException("Document not found"));
 
-        if (!document.getUser().getId().equals(currentUserId)){
+        if (!document.getUser().getId().equals(currentUserId)) {
             boolean isAdmin = document.getUser().getRoles().stream()
                     .anyMatch(role -> role.getName().equals("ADMIN"));
-            if (!isAdmin){
+            if (!isAdmin) {
                 throw new RuntimeException("You don't have permission to delete this document");
             }
         }
@@ -228,7 +230,7 @@ public class DocumentService {
         documentRepository.save(document);
         logEvent(document, DocumentEvent.DocumentEventType.DELETED, "Document deleted");
 
-        logger.info("Document deleted (soft) - id: {}, userId: {}",id,currentUserId);
+        logger.info("Document deleted (soft) - id: {}, userId: {}", id, currentUserId);
     }
 
     @Transactional
@@ -264,14 +266,14 @@ public class DocumentService {
         return convertToResponse(saved);
     }
 
-    public DocumentResponse getDocumentById(Long id){
-        Document document =documentRepository.findByIdAndDeletedAtIsNull(id)
+    public DocumentResponse getDocumentById(Long id) {
+        Document document = documentRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new RuntimeException("Document not found"));
 
         Long currentUserId = securityUtils.getCurrentUserId();
         // Allow access if: document is PUBLIC, OR user is the owner
-        if (document.getVisibility() != Document.DocumentVisibility.PUBLIC 
-            && (currentUserId == null || !document.getUser().getId().equals(currentUserId))){
+        if (document.getVisibility() != Document.DocumentVisibility.PUBLIC
+                && (currentUserId == null || !document.getUser().getId().equals(currentUserId))) {
             throw new RuntimeException("You don't have permission to access this document");
         }
 
@@ -306,14 +308,15 @@ public class DocumentService {
     }
 
     public Page<DocumentResponse> getPublicDocuments(String status, Pageable pageable) {
-        Document.DocumentStatus docStatus = status != null ?
-                Document.DocumentStatus.valueOf(status) : Document.DocumentStatus.PUBLISHED;
+        Document.DocumentStatus docStatus = status != null ? Document.DocumentStatus.valueOf(status)
+                : Document.DocumentStatus.PUBLISHED;
 
         Page<Document> documents = documentRepository.findByVisibilityAndStatusAndDeletedAtIsNull(
                 Document.DocumentVisibility.PUBLIC, docStatus, pageable);
 
         return documents.map(this::convertToResponse);
     }
+
     public Page<DocumentResponse> searchDocuments(String keyword, Pageable pageable) {
         Long currentUserId = securityUtils.getCurrentUserId();
 
@@ -329,8 +332,8 @@ public class DocumentService {
         return documents.map(this::convertToResponse);
     }
 
-    private  void assignSubjects(Document document, Set<Long> subjectIds) {
-        for (Long subjectId : subjectIds){
+    private void assignSubjects(Document document, Set<Long> subjectIds) {
+        for (Long subjectId : subjectIds) {
             Subject subject = subjectRepository.findById(subjectId)
                     .orElseThrow(() -> new RuntimeException("Subject not found " + subjectId));
 
@@ -340,8 +343,9 @@ public class DocumentService {
             documentSubjectRepository.save(docSubject);
         }
     }
-    private void assignTags(Document document, Set<String> tagNames){
-        for (String tagName : tagNames){
+
+    private void assignTags(Document document, Set<String> tagNames) {
+        for (String tagName : tagNames) {
             Tag tag = tagRepository.findByName(tagName)
                     .orElseGet(() -> {
                         Tag newTag = new Tag();
@@ -349,7 +353,7 @@ public class DocumentService {
                         newTag.setSlug(generateSlug(tagName));
                         return tagRepository.save(newTag);
                     });
-            
+
             // Create the DocumentTag relation
             DocumentTag docTag = new DocumentTag();
             docTag.setDocument(document);
@@ -358,14 +362,14 @@ public class DocumentService {
         }
     }
 
-    private String generateSlug(String name){
+    private String generateSlug(String name) {
         return name.toLowerCase()
                 .replaceAll("[^a-z0-9]+", "-")
                 .replaceAll("^-|-$", "");
     }
 
-    private void logEvent(Document document, DocumentEvent.DocumentEventType eventType,String descripsion){
-        if (documentEventService != null){
+    private void logEvent(Document document, DocumentEvent.DocumentEventType eventType, String descripsion) {
+        if (documentEventService != null) {
             Long userId = securityUtils.getCurrentUserId();
             String ip = securityUtils.getClientIp();
             String userAgent = securityUtils.getUserAgent();
@@ -377,19 +381,19 @@ public class DocumentService {
                     null,
                     null,
                     ip,
-                    userAgent
-            );
+                    userAgent);
         }
     }
 
     @Transactional
-    public void incrementViewCount(Document document){
+    public void incrementViewCount(Document document) {
         document.setViewCount(document.getViewCount() + 1);
         documentRepository.save(document);
 
         logEvent(document, DocumentEvent.DocumentEventType.VIEWED, "Document viewd");
     }
-    private DocumentResponse convertToResponse(Document document){
+
+    private DocumentResponse convertToResponse(Document document) {
         DocumentResponse response = new DocumentResponse();
         response.setId(document.getId());
         response.setUserId(document.getUser().getId());
@@ -398,6 +402,7 @@ public class DocumentService {
         response.setDescription(document.getDescription());
         response.setContent(document.getContent());
         response.setFileUrl(document.getFileUrl());
+        response.setObjectName(document.getObjectName());
         response.setFileName(document.getFileName());
         response.setFileSize(document.getFileSize());
         response.setFileType(document.getFileType());
@@ -413,11 +418,11 @@ public class DocumentService {
         response.setVersionNumber(document.getVersionNumber());
         response.setLanguage(document.getLanguage());
 
-        if (document.getParentDocument() != null){
+        if (document.getParentDocument() != null) {
             response.setParentDocumentId(document.getParentDocument().getId());
         }
 
-        if (document.getFolder() != null){
+        if (document.getFolder() != null) {
             response.setFolderId(document.getFolder().getId());
             response.setFolderName(document.getFolder().getName());
         }
@@ -433,11 +438,11 @@ public class DocumentService {
         response.setTags(tags);
 
         response.setCreatedAt(document.getCreatedAt());
-        if (document.getCreatedBy() != null){
+        if (document.getCreatedBy() != null) {
             response.setCreatedByUsername(document.getCreatedBy().getUsername());
         }
         response.setUpdatedAt(document.getUpdatedAt());
-        if (document.getUpdatedBy() != null){
+        if (document.getUpdatedBy() != null) {
             response.setUpdatedByUsername(document.getUpdatedBy().getUsername());
         }
         return response;

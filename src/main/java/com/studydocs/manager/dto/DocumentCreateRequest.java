@@ -10,13 +10,14 @@ public class DocumentCreateRequest {
     @Size(max = 255, message = "Document title must not exceed 255 characters")
     private String title;
 
-
     @Size(max = 500, message = "Description must not exceed 500 characters")
     private String description;
 
     private String content;
 
     private String fileUrl;
+
+    private String objectName;
 
     private String fileName;
 
@@ -64,6 +65,14 @@ public class DocumentCreateRequest {
 
     public void setFileUrl(String fileUrl) {
         this.fileUrl = fileUrl;
+    }
+
+    public String getObjectName() {
+        return objectName;
+    }
+
+    public void setObjectName(String objectName) {
+        this.objectName = objectName;
     }
 
     public String getFileName() {

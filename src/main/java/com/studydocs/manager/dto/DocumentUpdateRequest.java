@@ -15,6 +15,8 @@ public class DocumentUpdateRequest {
 
     private String fileUrl;
 
+    private String objectName;
+
     private String fileName;
 
     private Long fileSize;
@@ -38,49 +40,131 @@ public class DocumentUpdateRequest {
     private Set<String> tagNames;
 
     // Getters and Setters
-    public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
+    public String getTitle() {
+        return title;
+    }
 
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
+    public void setTitle(String title) {
+        this.title = title;
+    }
 
-    public String getContent() { return content; }
-    public void setContent(String content) { this.content = content; }
+    public String getDescription() {
+        return description;
+    }
 
-    public String getFileUrl() { return fileUrl; }
-    public void setFileUrl(String fileUrl) { this.fileUrl = fileUrl; }
+    public void setDescription(String description) {
+        this.description = description;
+    }
 
-    public String getFileName() { return fileName; }
-    public void setFileName(String fileName) { this.fileName = fileName; }
+    public String getContent() {
+        return content;
+    }
 
-    public Long getFileSize() { return fileSize; }
-    public void setFileSize(Long fileSize) { this.fileSize = fileSize; }
+    public void setContent(String content) {
+        this.content = content;
+    }
 
-    public String getFileType() { return fileType; }
-    public void setFileType(String fileType) { this.fileType = fileType; }
+    public String getFileUrl() {
+        return fileUrl;
+    }
 
-    public String getThumbnailUrl() { return thumbnailUrl; }
-    public void setThumbnailUrl(String thumbnailUrl) { this.thumbnailUrl = thumbnailUrl; }
+    public void setFileUrl(String fileUrl) {
+        this.fileUrl = fileUrl;
+    }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public String getObjectName() {
+        return objectName;
+    }
 
-    public String getVisibility() { return visibility; }
-    public void setVisibility(String visibility) { this.visibility = visibility; }
+    public void setObjectName(String objectName) {
+        this.objectName = objectName;
+    }
 
-    public Boolean getIsFeatured() { return isFeatured; }
-    public void setIsFeatured(Boolean isFeatured) { this.isFeatured = isFeatured; }
+    public String getFileName() {
+        return fileName;
+    }
 
-    public String getLanguage() { return language; }
-    public void setLanguage(String language) { this.language = language; }
+    public void setFileName(String fileName) {
+        this.fileName = fileName;
+    }
 
-    public Long getFolderId() { return folderId; }
-    public void setFolderId(Long folderId) { this.folderId = folderId; }
+    public Long getFileSize() {
+        return fileSize;
+    }
 
-    public Set<Long> getSubjectIds() { return subjectIds; }
-    public void setSubjectIds(Set<Long> subjectIds) { this.subjectIds = subjectIds; }
+    public void setFileSize(Long fileSize) {
+        this.fileSize = fileSize;
+    }
 
-    public Set<String> getTagNames() { return tagNames; }
-    public void setTagNames(Set<String> tagNames) { this.tagNames = tagNames; }
+    public String getFileType() {
+        return fileType;
+    }
+
+    public void setFileType(String fileType) {
+        this.fileType = fileType;
+    }
+
+    public String getThumbnailUrl() {
+        return thumbnailUrl;
+    }
+
+    public void setThumbnailUrl(String thumbnailUrl) {
+        this.thumbnailUrl = thumbnailUrl;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public String getVisibility() {
+        return visibility;
+    }
+
+    public void setVisibility(String visibility) {
+        this.visibility = visibility;
+    }
+
+    public Boolean getIsFeatured() {
+        return isFeatured;
+    }
+
+    public void setIsFeatured(Boolean isFeatured) {
+        this.isFeatured = isFeatured;
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    public void setLanguage(String language) {
+        this.language = language;
+    }
+
+    public Long getFolderId() {
+        return folderId;
+    }
+
+    public void setFolderId(Long folderId) {
+        this.folderId = folderId;
+    }
+
+    public Set<Long> getSubjectIds() {
+        return subjectIds;
+    }
+
+    public void setSubjectIds(Set<Long> subjectIds) {
+        this.subjectIds = subjectIds;
+    }
+
+    public Set<String> getTagNames() {
+        return tagNames;
+    }
+
+    public void setTagNames(Set<String> tagNames) {
+        this.tagNames = tagNames;
+    }
 }
-

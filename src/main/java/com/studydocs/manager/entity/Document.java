@@ -36,6 +36,9 @@ public class Document {
     @Column(name = "file_url", length = 1000)
     private String fileUrl;
 
+    @Column(name = "object_name", length = 1000)
+    private String objectName;
+
     @Column(name = "file_name", length = 500)
     private String fileName;
 
@@ -142,118 +145,292 @@ public class Document {
     }
 
     // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public User getUser() { return user; }
-    public void setUser(User user) { this.user = user; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
+    public User getUser() {
+        return user;
+    }
 
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
+    public void setUser(User user) {
+        this.user = user;
+    }
 
-    public String getContent() { return content; }
-    public void setContent(String content) { this.content = content; }
+    public String getTitle() {
+        return title;
+    }
 
-    public String getFileUrl() { return fileUrl; }
-    public void setFileUrl(String fileUrl) { this.fileUrl = fileUrl; }
+    public void setTitle(String title) {
+        this.title = title;
+    }
 
-    public String getFileName() { return fileName; }
-    public void setFileName(String fileName) { this.fileName = fileName; }
+    public String getDescription() {
+        return description;
+    }
 
-    public Long getFileSize() { return fileSize; }
-    public void setFileSize(Long fileSize) { this.fileSize = fileSize; }
+    public void setDescription(String description) {
+        this.description = description;
+    }
 
-    public String getFileType() { return fileType; }
-    public void setFileType(String fileType) { this.fileType = fileType; }
+    public String getContent() {
+        return content;
+    }
 
-    public String getThumbnailUrl() { return thumbnailUrl; }
-    public void setThumbnailUrl(String thumbnailUrl) { this.thumbnailUrl = thumbnailUrl; }
+    public void setContent(String content) {
+        this.content = content;
+    }
 
-    public DocumentStatus getStatus() { return status; }
-    public void setStatus(DocumentStatus status) { this.status = status; }
+    public String getFileUrl() {
+        return fileUrl;
+    }
 
-    public DocumentVisibility getVisibility() { return visibility; }
-    public void setVisibility(DocumentVisibility visibility) { this.visibility = visibility; }
+    public void setFileUrl(String fileUrl) {
+        this.fileUrl = fileUrl;
+    }
 
-    public Boolean getIsFeatured() { return isFeatured; }
-    public void setIsFeatured(Boolean isFeatured) { this.isFeatured = isFeatured; }
+    public String getObjectName() {
+        return objectName;
+    }
 
-    public Integer getViewCount() { return viewCount; }
-    public void setViewCount(Integer viewCount) { this.viewCount = viewCount; }
+    public void setObjectName(String objectName) {
+        this.objectName = objectName;
+    }
 
-    public Integer getDownloadCount() { return downloadCount; }
-    public void setDownloadCount(Integer downloadCount) { this.downloadCount = downloadCount; }
+    public String getFileName() {
+        return fileName;
+    }
 
-    public Integer getFavouriteCount() { return favouriteCount; }
-    public void setFavouriteCount(Integer favoriteCount) { this.favouriteCount = favoriteCount; }
+    public void setFileName(String fileName) {
+        this.fileName = fileName;
+    }
 
-    public java.math.BigDecimal getRatingAverage() { return ratingAverage; }
-    public void setRatingAverage(java.math.BigDecimal ratingAverage) { this.ratingAverage = ratingAverage; }
+    public Long getFileSize() {
+        return fileSize;
+    }
 
-    public Integer getRatingCount() { return ratingCount; }
-    public void setRatingCount(Integer ratingCount) { this.ratingCount = ratingCount; }
+    public void setFileSize(Long fileSize) {
+        this.fileSize = fileSize;
+    }
 
-    public Integer getVersionNumber() { return versionNumber; }
-    public void setVersionNumber(Integer versionNumber) { this.versionNumber = versionNumber; }
+    public String getFileType() {
+        return fileType;
+    }
 
-    public Document getParentDocument() { return parentDocument; }
-    public void setParentDocument(Document parentDocument) { this.parentDocument = parentDocument; }
+    public void setFileType(String fileType) {
+        this.fileType = fileType;
+    }
 
-    public Folder getFolder() { return folder; }
-    public void setFolder(Folder folder) { this.folder = folder; }
+    public String getThumbnailUrl() {
+        return thumbnailUrl;
+    }
 
-    public String getLanguage() { return language; }
-    public void setLanguage(String language) { this.language = language; }
+    public void setThumbnailUrl(String thumbnailUrl) {
+        this.thumbnailUrl = thumbnailUrl;
+    }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public DocumentStatus getStatus() {
+        return status;
+    }
 
-    public User getCreatedBy() { return createdBy; }
-    public void setCreatedBy(User createdBy) { this.createdBy = createdBy; }
+    public void setStatus(DocumentStatus status) {
+        this.status = status;
+    }
 
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public DocumentVisibility getVisibility() {
+        return visibility;
+    }
 
-    public User getUpdatedBy() { return updatedBy; }
-    public void setUpdatedBy(User updatedBy) { this.updatedBy = updatedBy; }
+    public void setVisibility(DocumentVisibility visibility) {
+        this.visibility = visibility;
+    }
 
-    public LocalDateTime getDeletedAt() { return deletedAt; }
-    public void setDeletedAt(LocalDateTime deletedAt) { this.deletedAt = deletedAt; }
+    public Boolean getIsFeatured() {
+        return isFeatured;
+    }
 
-    public User getDeletedBy() { return deletedBy; }
-    public void setDeletedBy(User deletedBy) { this.deletedBy = deletedBy; }
+    public void setIsFeatured(Boolean isFeatured) {
+        this.isFeatured = isFeatured;
+    }
 
-    public Set<DocumentVersion> getVersions() { return versions; }
-    public void setVersions(Set<DocumentVersion> versions) { this.versions = versions; }
+    public Integer getViewCount() {
+        return viewCount;
+    }
 
-    public Set<DocumentEvent> getEvents() { return events; }
-    public void setEvents(Set<DocumentEvent> events) { this.events = events; }
+    public void setViewCount(Integer viewCount) {
+        this.viewCount = viewCount;
+    }
 
-    public Set<DocumentRating> getRatings() { return ratings; }
-    public void setRatings(Set<DocumentRating> ratings) { this.ratings = ratings; }
+    public Integer getDownloadCount() {
+        return downloadCount;
+    }
 
-    public Set<DocumentSubject> getDocumentSubjects() { return documentSubjects; }
-    public void setDocumentSubjects(Set<DocumentSubject> documentSubjects) { this.documentSubjects = documentSubjects; }
+    public void setDownloadCount(Integer downloadCount) {
+        this.downloadCount = downloadCount;
+    }
 
-    public Set<DocumentTag> getDocumentTags() { return documentTags; }
-    public void setDocumentTags(Set<DocumentTag> documentTags) { this.documentTags = documentTags; }
+    public Integer getFavouriteCount() {
+        return favouriteCount;
+    }
 
-    public Set<Document> getChildDocuments() { return childDocuments; }
-    public void setChildDocuments(Set<Document> childDocuments) { this.childDocuments = childDocuments; }
+    public void setFavouriteCount(Integer favoriteCount) {
+        this.favouriteCount = favoriteCount;
+    }
+
+    public java.math.BigDecimal getRatingAverage() {
+        return ratingAverage;
+    }
+
+    public void setRatingAverage(java.math.BigDecimal ratingAverage) {
+        this.ratingAverage = ratingAverage;
+    }
+
+    public Integer getRatingCount() {
+        return ratingCount;
+    }
+
+    public void setRatingCount(Integer ratingCount) {
+        this.ratingCount = ratingCount;
+    }
+
+    public Integer getVersionNumber() {
+        return versionNumber;
+    }
+
+    public void setVersionNumber(Integer versionNumber) {
+        this.versionNumber = versionNumber;
+    }
+
+    public Document getParentDocument() {
+        return parentDocument;
+    }
+
+    public void setParentDocument(Document parentDocument) {
+        this.parentDocument = parentDocument;
+    }
+
+    public Folder getFolder() {
+        return folder;
+    }
+
+    public void setFolder(Folder folder) {
+        this.folder = folder;
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    public void setLanguage(String language) {
+        this.language = language;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public User getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(User createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public User getUpdatedBy() {
+        return updatedBy;
+    }
+
+    public void setUpdatedBy(User updatedBy) {
+        this.updatedBy = updatedBy;
+    }
+
+    public LocalDateTime getDeletedAt() {
+        return deletedAt;
+    }
+
+    public void setDeletedAt(LocalDateTime deletedAt) {
+        this.deletedAt = deletedAt;
+    }
+
+    public User getDeletedBy() {
+        return deletedBy;
+    }
+
+    public void setDeletedBy(User deletedBy) {
+        this.deletedBy = deletedBy;
+    }
+
+    public Set<DocumentVersion> getVersions() {
+        return versions;
+    }
+
+    public void setVersions(Set<DocumentVersion> versions) {
+        this.versions = versions;
+    }
+
+    public Set<DocumentEvent> getEvents() {
+        return events;
+    }
+
+    public void setEvents(Set<DocumentEvent> events) {
+        this.events = events;
+    }
+
+    public Set<DocumentRating> getRatings() {
+        return ratings;
+    }
+
+    public void setRatings(Set<DocumentRating> ratings) {
+        this.ratings = ratings;
+    }
+
+    public Set<DocumentSubject> getDocumentSubjects() {
+        return documentSubjects;
+    }
+
+    public void setDocumentSubjects(Set<DocumentSubject> documentSubjects) {
+        this.documentSubjects = documentSubjects;
+    }
+
+    public Set<DocumentTag> getDocumentTags() {
+        return documentTags;
+    }
+
+    public void setDocumentTags(Set<DocumentTag> documentTags) {
+        this.documentTags = documentTags;
+    }
+
+    public Set<Document> getChildDocuments() {
+        return childDocuments;
+    }
+
+    public void setChildDocuments(Set<Document> childDocuments) {
+        this.childDocuments = childDocuments;
+    }
 
     // Enums
-    public enum  DocumentStatus {
+    public enum DocumentStatus {
         DRAFT, PUBLISHED, ARCHIVED, DELETED
     }
+
     public enum DocumentVisibility {
         PRIVATE, PUBLIC, SHARED
     }
 }
-
-
-
-
-

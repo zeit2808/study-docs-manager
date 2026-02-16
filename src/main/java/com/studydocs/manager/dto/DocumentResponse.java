@@ -1,18 +1,30 @@
 package com.studydocs.manager.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Set;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class DocumentResponse {
 
     private Long id;
+
+    @JsonIgnore // Internal - không cần expose cho user
     private Long userId;
+
     private String username;
     private String title;
     private String description;
     private String content;
+    @JsonIgnore // Technical - presigned URL quá dài, chỉ dùng khi download
     private String fileUrl;
+
+    // Expose to FE - needed for /api/files/download?objectName=...
+    private String objectName;
+
     private String fileName;
     private Long fileSize;
     private String fileType;
@@ -25,106 +37,275 @@ public class DocumentResponse {
     private Integer favoriteCount;
     private BigDecimal ratingAverage;
     private Integer ratingCount;
+    @JsonIgnore // Internal versioning
     private Integer versionNumber;
+
+    @JsonIgnore // Internal reference
     private Long parentDocumentId;
+
     private Long folderId;
     private String folderName;
+
     private String language;
+
     private Set<String> subjects;
     private Set<String> tags;
     private LocalDateTime createdAt;
+
+    @JsonIgnore // Duplicate với username
     private String createdByUsername;
+
     private LocalDateTime updatedAt;
+
+    @JsonIgnore // Ít khi cần thiết
     private String updatedByUsername;
 
     // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public Long getUserId() { return userId; }
-    public void setUserId(Long userId) { this.userId = userId; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getUsername() { return username; }
-    public void setUsername(String username) { this.username = username; }
+    public Long getUserId() {
+        return userId;
+    }
 
-    public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
 
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
+    public String getUsername() {
+        return username;
+    }
 
-    public String getContent() { return content; }
-    public void setContent(String content) { this.content = content; }
+    public void setUsername(String username) {
+        this.username = username;
+    }
 
-    public String getFileUrl() { return fileUrl; }
-    public void setFileUrl(String fileUrl) { this.fileUrl = fileUrl; }
+    public String getTitle() {
+        return title;
+    }
 
-    public String getFileName() { return fileName; }
-    public void setFileName(String fileName) { this.fileName = fileName; }
+    public void setTitle(String title) {
+        this.title = title;
+    }
 
-    public Long getFileSize() { return fileSize; }
-    public void setFileSize(Long fileSize) { this.fileSize = fileSize; }
+    public String getDescription() {
+        return description;
+    }
 
-    public String getFileType() { return fileType; }
-    public void setFileType(String fileType) { this.fileType = fileType; }
+    public void setDescription(String description) {
+        this.description = description;
+    }
 
-    public String getThumbnailUrl() { return thumbnailUrl; }
-    public void setThumbnailUrl(String thumbnailUrl) { this.thumbnailUrl = thumbnailUrl; }
+    public String getContent() {
+        return content;
+    }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public void setContent(String content) {
+        this.content = content;
+    }
 
-    public String getVisibility() { return visibility; }
-    public void setVisibility(String visibility) { this.visibility = visibility; }
+    public String getFileUrl() {
+        return fileUrl;
+    }
 
-    public Boolean getIsFeatured() { return isFeatured; }
-    public void setIsFeatured(Boolean isFeatured) { this.isFeatured = isFeatured; }
+    public void setFileUrl(String fileUrl) {
+        this.fileUrl = fileUrl;
+    }
 
-    public Integer getViewCount() { return viewCount; }
-    public void setViewCount(Integer viewCount) { this.viewCount = viewCount; }
+    public String getObjectName() {
+        return objectName;
+    }
 
-    public Integer getDownloadCount() { return downloadCount; }
-    public void setDownloadCount(Integer downloadCount) { this.downloadCount = downloadCount; }
+    public void setObjectName(String objectName) {
+        this.objectName = objectName;
+    }
 
-    public Integer getFavoriteCount() { return favoriteCount; }
-    public void setFavoriteCount(Integer favoriteCount) { this.favoriteCount = favoriteCount; }
+    public String getFileName() {
+        return fileName;
+    }
 
-    public BigDecimal getRatingAverage() { return ratingAverage; }
-    public void setRatingAverage(BigDecimal ratingAverage) { this.ratingAverage = ratingAverage; }
+    public void setFileName(String fileName) {
+        this.fileName = fileName;
+    }
 
-    public Integer getRatingCount() { return ratingCount; }
-    public void setRatingCount(Integer ratingCount) { this.ratingCount = ratingCount; }
+    public Long getFileSize() {
+        return fileSize;
+    }
 
-    public Integer getVersionNumber() { return versionNumber; }
-    public void setVersionNumber(Integer versionNumber) { this.versionNumber = versionNumber; }
+    public void setFileSize(Long fileSize) {
+        this.fileSize = fileSize;
+    }
 
-    public Long getParentDocumentId() { return parentDocumentId; }
-    public void setParentDocumentId(Long parentDocumentId) { this.parentDocumentId = parentDocumentId; }
+    public String getFileType() {
+        return fileType;
+    }
 
-    public Long getFolderId() { return folderId; }
-    public void setFolderId(Long folderId) { this.folderId = folderId; }
+    public void setFileType(String fileType) {
+        this.fileType = fileType;
+    }
 
-    public String getFolderName() { return folderName; }
-    public void setFolderName(String folderName) { this.folderName = folderName; }
+    public String getThumbnailUrl() {
+        return thumbnailUrl;
+    }
 
-    public String getLanguage() { return language; }
-    public void setLanguage(String language) { this.language = language; }
+    public void setThumbnailUrl(String thumbnailUrl) {
+        this.thumbnailUrl = thumbnailUrl;
+    }
 
-    public Set<String> getSubjects() { return subjects; }
-    public void setSubjects(Set<String> subjects) { this.subjects = subjects; }
+    public String getStatus() {
+        return status;
+    }
 
-    public Set<String> getTags() { return tags; }
-    public void setTags(Set<String> tags) { this.tags = tags; }
+    public void setStatus(String status) {
+        this.status = status;
+    }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public String getVisibility() {
+        return visibility;
+    }
 
-    public String getCreatedByUsername() { return createdByUsername; }
-    public void setCreatedByUsername(String createdByUsername) { this.createdByUsername = createdByUsername; }
+    public void setVisibility(String visibility) {
+        this.visibility = visibility;
+    }
 
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public Boolean getIsFeatured() {
+        return isFeatured;
+    }
 
-    public String getUpdatedByUsername() { return updatedByUsername; }
-    public void setUpdatedByUsername(String updatedByUsername) { this.updatedByUsername = updatedByUsername; }
+    public void setIsFeatured(Boolean isFeatured) {
+        this.isFeatured = isFeatured;
+    }
+
+    public Integer getViewCount() {
+        return viewCount;
+    }
+
+    public void setViewCount(Integer viewCount) {
+        this.viewCount = viewCount;
+    }
+
+    public Integer getDownloadCount() {
+        return downloadCount;
+    }
+
+    public void setDownloadCount(Integer downloadCount) {
+        this.downloadCount = downloadCount;
+    }
+
+    public Integer getFavoriteCount() {
+        return favoriteCount;
+    }
+
+    public void setFavoriteCount(Integer favoriteCount) {
+        this.favoriteCount = favoriteCount;
+    }
+
+    public BigDecimal getRatingAverage() {
+        return ratingAverage;
+    }
+
+    public void setRatingAverage(BigDecimal ratingAverage) {
+        this.ratingAverage = ratingAverage;
+    }
+
+    public Integer getRatingCount() {
+        return ratingCount;
+    }
+
+    public void setRatingCount(Integer ratingCount) {
+        this.ratingCount = ratingCount;
+    }
+
+    public Integer getVersionNumber() {
+        return versionNumber;
+    }
+
+    public void setVersionNumber(Integer versionNumber) {
+        this.versionNumber = versionNumber;
+    }
+
+    public Long getParentDocumentId() {
+        return parentDocumentId;
+    }
+
+    public void setParentDocumentId(Long parentDocumentId) {
+        this.parentDocumentId = parentDocumentId;
+    }
+
+    public Long getFolderId() {
+        return folderId;
+    }
+
+    public void setFolderId(Long folderId) {
+        this.folderId = folderId;
+    }
+
+    public String getFolderName() {
+        return folderName;
+    }
+
+    public void setFolderName(String folderName) {
+        this.folderName = folderName;
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    public void setLanguage(String language) {
+        this.language = language;
+    }
+
+    public Set<String> getSubjects() {
+        return subjects;
+    }
+
+    public void setSubjects(Set<String> subjects) {
+        this.subjects = subjects;
+    }
+
+    public Set<String> getTags() {
+        return tags;
+    }
+
+    public void setTags(Set<String> tags) {
+        this.tags = tags;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public String getCreatedByUsername() {
+        return createdByUsername;
+    }
+
+    public void setCreatedByUsername(String createdByUsername) {
+        this.createdByUsername = createdByUsername;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public String getUpdatedByUsername() {
+        return updatedByUsername;
+    }
+
+    public void setUpdatedByUsername(String updatedByUsername) {
+        this.updatedByUsername = updatedByUsername;
+    }
 }

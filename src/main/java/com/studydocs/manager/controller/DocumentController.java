@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
 @RestController
 @RequestMapping("/api/documents")
 @Tag(name = "Documents", description = "APIs for managing documents")
@@ -29,11 +30,11 @@ public class DocumentController {
     @PostMapping
     @Operation(summary = "Create document", description = "Create a new document")
     @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
-    public ResponseEntity<DocumentResponse> createDocument(@Valid @RequestBody DocumentCreateRequest request){
-        try{
+    public ResponseEntity<DocumentResponse> createDocument(@Valid @RequestBody DocumentCreateRequest request) {
+        try {
             DocumentResponse response = documentService.createDocument(request);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (RuntimeException e){
+        } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
     }
@@ -99,8 +100,7 @@ public class DocumentController {
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "DESC") String sortDir) {
 
-        Sort sort = sortDir.equalsIgnoreCase("ASC") ?
-                Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Sort sort = sortDir.equalsIgnoreCase("ASC") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
         Page<DocumentResponse> documents = documentService.getMyDocuments(status, folderId, pageable);
@@ -117,8 +117,7 @@ public class DocumentController {
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "DESC") String sortDir) {
 
-        Sort sort = sortDir.equalsIgnoreCase("ASC") ?
-                Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Sort sort = sortDir.equalsIgnoreCase("ASC") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
         Page<DocumentResponse> documents = documentService.getPublicDocuments(status, pageable);
@@ -138,5 +137,30 @@ public class DocumentController {
         return ResponseEntity.ok(documents);
     }
 
+    @GetMapping("/{id}/download")
+    @Operation(summary = "Download document file", description = "Download the file associated with a document")
+    @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
+    public ResponseEntity<?> downloadDocument(@PathVariable Long id) {
+        try {
+            DocumentResponse document = documentService.getDocumentById(id);
+
+            if (document.getObjectName() == null || document.getObjectName().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body("Document file not found");
+            }
+
+            // TODO: Increment download count and log download event
+            // This should be added to DocumentService later
+
+            // Redirect to file download endpoint
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header("Location", "/api/files/download?objectName=" + document.getObjectName())
+                    .build();
+
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("Document not found");
+        }
+    }
 
 }
