@@ -1,5 +1,4 @@
-// RateLimiterService.java
-package com.studydocs.manager.security;
+package com.studydocs.manager.security.service;
 
 import org.springframework.stereotype.Service;
 

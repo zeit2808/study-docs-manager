@@ -1,4 +1,4 @@
-package com.studydocs.manager.security;
+package com.studydocs.manager.security.utils;
 
 import com.studydocs.manager.entity.User;
 import com.studydocs.manager.repository.UserRepository;
@@ -12,7 +12,6 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Optional;
 
-
 @Component
 public class SecurityUtils {
 
@@ -22,11 +21,9 @@ public class SecurityUtils {
         this.userRepository = userRepository;
     }
 
-
     public Authentication getAuthentication() {
         return SecurityContextHolder.getContext().getAuthentication();
     }
-
 
     public String getCurrentUsername() {
         Authentication authentication = getAuthentication();
@@ -40,7 +37,6 @@ public class SecurityUtils {
         }
         return authentication.getName();
     }
-
 
     public Long getCurrentUserId() {
         String username = getCurrentUsername();
@@ -58,7 +54,6 @@ public class SecurityUtils {
         }
         return null;
     }
-
 
     public String getClientIp() {
         HttpServletRequest request = getCurrentRequest();
@@ -81,5 +76,3 @@ public class SecurityUtils {
         return request.getHeader("User-Agent");
     }
 }
-
-

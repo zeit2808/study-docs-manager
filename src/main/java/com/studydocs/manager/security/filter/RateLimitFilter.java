@@ -1,7 +1,7 @@
-// RateLimitFilter.java
-package com.studydocs.manager.security;
+package com.studydocs.manager.security.filter;
 
 import com.studydocs.manager.config.RateLimitProperties;
+import com.studydocs.manager.security.service.RateLimiterService;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

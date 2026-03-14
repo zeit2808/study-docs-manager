@@ -1,7 +1,7 @@
 package com.studydocs.manager.config;
 
-import com.studydocs.manager.security.JwtAuthenticationFilter;
-import com.studydocs.manager.security.RestSecurityExceptionHandler;
+import com.studydocs.manager.security.filter.JwtAuthenticationFilter;
+import com.studydocs.manager.security.handler.RestSecurityExceptionHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -30,7 +30,7 @@ public class SecurityConfig {
     private final RestSecurityExceptionHandler restSecurityExceptionHandler;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
-                          RestSecurityExceptionHandler restSecurityExceptionHandler) {
+            RestSecurityExceptionHandler restSecurityExceptionHandler) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.restSecurityExceptionHandler = restSecurityExceptionHandler;
     }
@@ -52,16 +52,14 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(restSecurityExceptionHandler)
-                        .accessDeniedHandler(restSecurityExceptionHandler)
-                )
+                        .accessDeniedHandler(restSecurityExceptionHandler))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/api-docs/**").permitAll()
                         .requestMatchers("/static/avatars/**").permitAll() // Cho phép truy cập avatar công khai
                         .requestMatchers("/api/profile/**").hasAnyRole("ADMIN", "USER")
                         .requestMatchers("/api/users/**").hasAnyRole("ADMIN", "USER")
-                        .anyRequest().authenticated()
-                );
+                        .anyRequest().authenticated());
 
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
@@ -70,7 +68,8 @@ public class SecurityConfig {
 
     /**
      * CORS cho frontend/Swagger.
-     * - Cho phép mọi origin qua pattern (dev). Khi deploy thật, nên khóa origin cụ thể.
+     * - Cho phép mọi origin qua pattern (dev). Khi deploy thật, nên khóa origin cụ
+     * thể.
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
@@ -82,8 +81,7 @@ public class SecurityConfig {
                 HttpMethod.PUT.name(),
                 HttpMethod.PATCH.name(),
                 HttpMethod.DELETE.name(),
-                HttpMethod.OPTIONS.name()
-        ));
+                HttpMethod.OPTIONS.name()));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
 

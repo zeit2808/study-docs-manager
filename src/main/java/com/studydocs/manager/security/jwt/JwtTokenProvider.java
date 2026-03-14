@@ -1,4 +1,5 @@
-package com.studydocs.manager.security;
+package com.studydocs.manager.security.jwt;
+
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,15 +16,19 @@ import java.util.stream.Collectors;
 
 @Component
 public class JwtTokenProvider {
+
     @Value("${jwt.secret}")
     private String jwtSecret;
+
     @Value("${jwt.expiration}")
     private long jwtExpiration;
-    public SecretKey getSigningKey(){
+
+    public SecretKey getSigningKey() {
         byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(keyBytes);
     }
-    public  String  generateToken(Authentication authentication){
+
+    public String generateToken(Authentication authentication) {
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
         String username = userDetails.getUsername();
         String roles = userDetails.getAuthorities().stream()
@@ -40,7 +45,8 @@ public class JwtTokenProvider {
                 .signWith(getSigningKey())
                 .compact();
     }
-    public String getUsernameFromToken(String token){
+
+    public String getUsernameFromToken(String token) {
         Claims claims = Jwts.parser()
                 .verifyWith(getSigningKey())
                 .build()
@@ -48,15 +54,15 @@ public class JwtTokenProvider {
                 .getPayload();
         return claims.getSubject();
     }
-    public boolean validateToken(String token){
-        try{
+
+    public boolean validateToken(String token) {
+        try {
             Jwts.parser()
                     .verifyWith(getSigningKey())
                     .build()
                     .parseSignedClaims(token);
             return true;
-        } catch (JwtException | IllegalArgumentException e){
-            // Log the exception or handle it as needed
+        } catch (JwtException | IllegalArgumentException e) {
             return false;
         }
     }

@@ -1,4 +1,5 @@
 package com.studydocs.manager.service;
+
 import com.studydocs.manager.dto.ProfileUpdateRequest;
 import com.studydocs.manager.search.UserSearchService;
 import com.studydocs.manager.dto.UserResponse;
@@ -7,7 +8,7 @@ import com.studydocs.manager.entity.Role;
 import com.studydocs.manager.entity.User;
 import com.studydocs.manager.repository.RoleRepository;
 import com.studydocs.manager.repository.UserRepository;
-import com.studydocs.manager.security.SecurityUtils;
+import com.studydocs.manager.security.utils.SecurityUtils;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -38,20 +39,23 @@ public class UserService {
     private AuditLogService auditLogService;
     @Autowired
     private SecurityUtils securityUtils;
-    public List<UserResponse> getAllUsers(){
+
+    public List<UserResponse> getAllUsers() {
         return userRepository.findAll().stream()
                 .map(this::convertToResponse)
                 .collect(Collectors.toList());
     }
+
     @Cacheable(cacheNames = "usersById", key = "#id")
-    public UserResponse getUserById(Long id){
+    public UserResponse getUserById(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         return convertToResponse(user);
     }
+
     @Transactional
-    @CacheEvict(cacheNames = {"usersById", "usersByUsername"}, allEntries = true)
-    public UserResponse updateUser(Long id, UserUpdateRequest updateRequest){
+    @CacheEvict(cacheNames = { "usersById", "usersByUsername" }, allEntries = true)
+    public UserResponse updateUser(Long id, UserUpdateRequest updateRequest) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         User before = new User();
@@ -60,15 +64,15 @@ public class UserService {
         before.setPhone(user.getPhone());
         before.setEnabled(user.getEnabled());
 
-        if (updateRequest.getEmail() != null && !updateRequest.getEmail().isEmpty()){
+        if (updateRequest.getEmail() != null && !updateRequest.getEmail().isEmpty()) {
             if (!user.getEmail().equals(updateRequest.getEmail()) &&
-            userRepository.existsByEmail(updateRequest.getEmail())){
+                    userRepository.existsByEmail(updateRequest.getEmail())) {
                 throw new RuntimeException("Email is already in use");
             }
             user.setEmail(updateRequest.getEmail());
         }
         if (updateRequest.getPassword() != null && !updateRequest
-                .getPassword().isEmpty()){
+                .getPassword().isEmpty()) {
             user.setPassword(passwordEncoder.encode(updateRequest.getPassword()));
         }
         if (updateRequest.getFullname() != null) {
@@ -82,13 +86,13 @@ public class UserService {
         if (updateRequest.getEnabled() != null) {
             user.setEnabled(updateRequest.getEnabled());
         }
-        if (updateRequest.getRoles()!=null && !updateRequest.getRoles()
-                .isEmpty()){
+        if (updateRequest.getRoles() != null && !updateRequest.getRoles()
+                .isEmpty()) {
             Set<Role> roles = new HashSet<>();
             updateRequest.getRoles().forEach(roleName -> {
-                 Role role = roleRepository.findByName(roleName.toUpperCase())
-                         .orElseThrow(()->new RuntimeException("Role "+roleName+" not found"));
-                    roles.add(role);
+                Role role = roleRepository.findByName(roleName.toUpperCase())
+                        .orElseThrow(() -> new RuntimeException("Role " + roleName + " not found"));
+                roles.add(role);
             });
             user.setRoles(roles);
         }
@@ -127,14 +131,17 @@ public class UserService {
 
         return convertToResponse(updatedUser);
     }
+
     private boolean equals(Object a, Object b) {
-        if (a == null) return b == null;
+        if (a == null)
+            return b == null;
         return a.equals(b);
     }
+
     @Transactional
-    @CacheEvict(cacheNames = {"usersById", "usersByUsername"}, allEntries = true)
-    public void deleteUser(Long id){
-        if (!userRepository.existsById(id)){
+    @CacheEvict(cacheNames = { "usersById", "usersByUsername" }, allEntries = true)
+    public void deleteUser(Long id) {
+        if (!userRepository.existsById(id)) {
             throw new RuntimeException("User not found");
         }
         userRepository.deleteById(id);
@@ -148,14 +155,16 @@ public class UserService {
         auditLogService.log(actorId, id,
                 "DELETE_USER", "Deleted user with id " + id, ip, userAgent);
     }
+
     @Transactional
     @Cacheable(cacheNames = "usersByUsername", key = "#username")
-    public UserResponse getUserByUsername(String username){
+    public UserResponse getUserByUsername(String username) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         return convertToResponse(user);
     }
-    private UserResponse convertToResponse(User user){
+
+    private UserResponse convertToResponse(User user) {
         UserResponse response = new UserResponse();
         response.setId(user.getId());
         response.setUsename(user.getUsername());
@@ -174,7 +183,7 @@ public class UserService {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = {"usersById", "usersByUsername"}, allEntries = true)
+    @CacheEvict(cacheNames = { "usersById", "usersByUsername" }, allEntries = true)
     public UserResponse updateProfile(String username, ProfileUpdateRequest request) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -229,7 +238,7 @@ public class UserService {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = {"usersById", "usersByUsername"}, allEntries = true)
+    @CacheEvict(cacheNames = { "usersById", "usersByUsername" }, allEntries = true)
     public UserResponse updateAvatar(String username, MultipartFile file) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -254,4 +263,3 @@ public class UserService {
         }
     }
 }
-

@@ -6,7 +6,7 @@ import com.studydocs.manager.dto.DocumentUpdateRequest;
 import com.studydocs.manager.entity.*;
 import com.studydocs.manager.repository.*;
 import com.studydocs.manager.search.DocumentIndexingService;
-import com.studydocs.manager.security.SecurityUtils;
+import com.studydocs.manager.security.utils.SecurityUtils;
 import jakarta.transaction.Transactional;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

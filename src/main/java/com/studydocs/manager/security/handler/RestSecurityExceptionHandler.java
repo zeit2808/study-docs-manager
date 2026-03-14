@@ -1,4 +1,4 @@
-package com.studydocs.manager.security;
+package com.studydocs.manager.security.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+
 @Component
 public class RestSecurityExceptionHandler implements AuthenticationEntryPoint, AccessDeniedHandler {
 
@@ -54,5 +55,3 @@ public class RestSecurityExceptionHandler implements AuthenticationEntryPoint, A
         response.getWriter().write(objectMapper.writeValueAsString(body));
     }
 }
-
-

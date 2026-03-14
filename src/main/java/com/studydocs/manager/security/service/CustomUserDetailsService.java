@@ -1,4 +1,4 @@
-package com.studydocs.manager.security;
+package com.studydocs.manager.security.service;
 
 import com.studydocs.manager.entity.User;
 import com.studydocs.manager.repository.UserRepository;

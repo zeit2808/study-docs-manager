@@ -7,7 +7,7 @@ import com.studydocs.manager.entity.Role;
 import com.studydocs.manager.entity.User;
 import com.studydocs.manager.repository.RoleRepository;
 import com.studydocs.manager.repository.UserRepository;
-import com.studydocs.manager.security.JwtTokenProvider;
+import com.studydocs.manager.security.jwt.JwtTokenProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -24,16 +24,15 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import com.studydocs.manager.search.UserSearchService;
 
-
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 public class AuthService {
-    
+
     private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
-    
+
     @Autowired
     private AuthenticationManager authenticationManager;
     @Autowired
@@ -46,16 +45,15 @@ public class AuthService {
     private JwtTokenProvider tokenProvider;
     @Autowired(required = false)
     private UserSearchService userSearchService;
-    
+
     @PersistenceContext
     private EntityManager entityManager;
-    
+
     @Autowired
     private org.springframework.transaction.PlatformTransactionManager transactionManager;
-    
+
     @Autowired
     private LoginAttemptService loginAttemptService;
-
 
     @Transactional
     public JwtResponse login(LoginRequest loginRequest) {
@@ -87,26 +85,27 @@ public class AuthService {
         } catch (org.springframework.security.core.AuthenticationException ex) {
             // Login fail → tăng failed attempts trong Redis (không bị rollback)
             boolean isLocked = loginAttemptService.incrementFailedAttempts(loginRequest.getUsername());
-            
+
             if (isLocked) {
                 // Đã đạt ngưỡng và bị lock - log warning vì đây là security event
                 unlockTime = loginAttemptService.isAccountLocked(loginRequest.getUsername());
-                logger.warn("Account locked due to multiple failed login attempts - username: {}, unlockTime: {}", 
-                           loginRequest.getUsername(), unlockTime);
+                logger.warn("Account locked due to multiple failed login attempts - username: {}, unlockTime: {}",
+                        loginRequest.getUsername(), unlockTime);
                 throw new RuntimeException("Account is locked until " + unlockTime + " due to 5 failed login attempts");
             }
-            
+
             // Login sai nhưng chưa bị lock - không log (expected behavior)
             // Chỉ log nếu cần debug (có thể bật bằng log level)
             if (logger.isDebugEnabled()) {
                 int attempts = loginAttemptService.getFailedAttempts(loginRequest.getUsername());
-                logger.debug("Login failed - username: {}, current attempts: {}", 
-                           loginRequest.getUsername(), attempts);
+                logger.debug("Login failed - username: {}, current attempts: {}",
+                        loginRequest.getUsername(), attempts);
             }
-            
+
             throw new RuntimeException("Invalid username or password");
         }
     }
+
     @Transactional
     public User register(RegisterRequest registerRequest) {
         if (userRepository.existsByUsername(registerRequest.getUsername())) {
@@ -122,14 +121,14 @@ public class AuthService {
         user.setPhone(registerRequest.getPhone());
         user.setEnabled(true);
         user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
-        
+
         // Normal registration always sets USER role (ignore any roles in request)
         Set<Role> roles = new HashSet<>();
         Role userRole = roleRepository.findByName("USER")
                 .orElseThrow(() -> new RuntimeException("Role USER not found"));
         roles.add(userRole);
         user.setRoles(roles);
-        
+
         User saved = userRepository.save(user);
         // index vào Elasticsearch để hỗ trợ search nhanh (nếu ES available)
         if (userSearchService != null) {
@@ -153,7 +152,7 @@ public class AuthService {
         user.setPhone(adminRegisterRequest.getPhone());
         user.setEnabled(adminRegisterRequest.getEnabled() != null ? adminRegisterRequest.getEnabled() : true);
         user.setPassword(passwordEncoder.encode(adminRegisterRequest.getPassword()));
-        
+
         // Admin can set any roles
         Set<Role> roles = new HashSet<>();
         if (adminRegisterRequest.getRoles() == null || adminRegisterRequest.getRoles().isEmpty()) {
@@ -165,7 +164,7 @@ public class AuthService {
             roles.add(role);
         });
         user.setRoles(roles);
-        
+
         User saved = userRepository.save(user);
         // index vào Elasticsearch để hỗ trợ search nhanh (nếu ES available)
         if (userSearchService != null) {
