@@ -30,8 +30,11 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
                         DocumentStatus status,
                         Pageable pageable);
 
-        // Find by folder
+        // Find by folder (paginated)
         Page<Document> findByFolderIdAndDeletedAtIsNull(Long folderId, Pageable pageable);
+
+        // Find by folder (all, for cascade delete / unlink)
+        List<Document> findAllByFolderIdAndDeletedAtIsNull(Long folderId);
 
         // Find by user and folder
         Page<Document> findByUserIdAndFolderIdAndDeletedAtIsNull(Long userId, Long folderId, Pageable pageable);
@@ -82,8 +85,25 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
         Page<Document> findByUserIdAndVisibility(@Param("userId") Long userId,
                         @Param("visibility") Document.DocumentVisibility visibility, Pageable pageable);
 
-        // Cleanup query: Find old deleted documents with files
+        // Cleanup query: Find old deleted documents with files (non-paginated, legacy)
         List<Document> findByDeletedAtBeforeAndObjectNameIsNotNull(LocalDateTime cutoffDate);
+
+        // Paginated cleanup query: status=DELETED + deletedAt < cutoff + still has file
+        // in MinIO
+        Page<Document> findByStatusAndDeletedAtBeforeAndObjectNameIsNotNull(
+                        Document.DocumentStatus status, LocalDateTime cutoffDate, Pageable pageable);
+
         Page<Document> findByStatus(Document.DocumentStatus status, Pageable pageable);
+
         List<Document> findByUserIdAndStatus(Long userId, Document.DocumentStatus status);
+
+        // Trash purge query: DELETED + file already cleaned (objectName=null) + over
+        // retention period
+        Page<Document> findByStatusAndDeletedAtBeforeAndObjectNameIsNull(
+                        Document.DocumentStatus status, LocalDateTime cutoffDate, Pageable pageable);
+
+        // Trash: paginated list of deleted documents for a specific user
+        Page<Document> findByUserIdAndStatusAndDeletedAtIsNotNull(
+                        Long userId, Document.DocumentStatus status, Pageable pageable);
+
 }

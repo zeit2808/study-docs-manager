@@ -27,7 +27,7 @@ public class Folder {
     @JoinColumn(name = "parent_id")
     private Folder parent;
 
-    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "parent")
     private Set<Folder> children = new HashSet<>();
 
     @Column(length = 20)
@@ -48,7 +48,7 @@ public class Folder {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "folder", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "folder")
     private Set<Document> documents = new HashSet<>();
 
     @PrePersist
@@ -62,40 +62,100 @@ public class Folder {
     }
 
     // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public User getUser() { return user; }
-    public void setUser(User user) { this.user = user; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
+    public User getUser() {
+        return user;
+    }
 
-    public Folder getParent() { return parent; }
-    public void setParent(Folder parent) { this.parent = parent; }
+    public void setUser(User user) {
+        this.user = user;
+    }
 
-    public Set<Folder> getChildren() { return children; }
-    public void setChildren(Set<Folder> children) { this.children = children; }
+    public String getName() {
+        return name;
+    }
 
-    public String getColor() { return color; }
-    public void setColor(String color) { this.color = color; }
+    public void setName(String name) {
+        this.name = name;
+    }
 
-    public String getIcon() { return icon; }
-    public void setIcon(String icon) { this.icon = icon; }
+    public Folder getParent() {
+        return parent;
+    }
 
-    public Integer getSortOrder() { return sortOrder; }
-    public void setSortOrder(Integer sortOrder) { this.sortOrder = sortOrder; }
+    public void setParent(Folder parent) {
+        this.parent = parent;
+    }
 
-    public Integer getDocumentCount() { return documentCount; }
-    public void setDocumentCount(Integer documentCount) { this.documentCount = documentCount; }
+    public Set<Folder> getChildren() {
+        return children;
+    }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public void setChildren(Set<Folder> children) {
+        this.children = children;
+    }
 
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public String getColor() {
+        return color;
+    }
 
-    public Set<Document> getDocuments() { return documents; }
-    public void setDocuments(Set<Document> documents) { this.documents = documents; }
+    public void setColor(String color) {
+        this.color = color;
+    }
+
+    public String getIcon() {
+        return icon;
+    }
+
+    public void setIcon(String icon) {
+        this.icon = icon;
+    }
+
+    public Integer getSortOrder() {
+        return sortOrder;
+    }
+
+    public void setSortOrder(Integer sortOrder) {
+        this.sortOrder = sortOrder;
+    }
+
+    public Integer getDocumentCount() {
+        return documentCount;
+    }
+
+    public void setDocumentCount(Integer documentCount) {
+        this.documentCount = documentCount;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public Set<Document> getDocuments() {
+        return documents;
+    }
+
+    public void setDocuments(Set<Document> documents) {
+        this.documents = documents;
+    }
 
 }

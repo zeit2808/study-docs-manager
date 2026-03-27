@@ -2,12 +2,13 @@ package com.studydocs.manager.search;
 
 import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.query_dsl.*;
-import com.studydocs.manager.dto.DocumentSearchRequest;
-import com.studydocs.manager.dto.DocumentSearchResponse;
-import com.studydocs.manager.dto.DocumentSearchResult;
+import com.studydocs.manager.dto.document.DocumentSearchRequest;
+import com.studydocs.manager.dto.document.DocumentSearchResponse;
+import com.studydocs.manager.dto.document.DocumentSearchResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
@@ -31,6 +32,7 @@ import java.util.stream.Collectors;
  * Service để thực hiện advanced search trên Elasticsearch
  */
 @Service
+@ConditionalOnProperty(name = "search.indexing.enabled", havingValue = "true", matchIfMissing = false)
 public class DocumentSearchService {
 
     private static final Logger logger = LoggerFactory.getLogger(DocumentSearchService.class);

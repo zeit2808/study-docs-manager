@@ -8,4 +8,8 @@ import java.util.List;
 public interface FolderRepository extends JpaRepository<Folder,Long> {
     List<Folder> findByUserIdAndParentIdIsNull(Long userId);
     List<Folder> findByUserIdAndParentId(Long userId, Long parentId);
+    boolean existsByUserIdAndNameAndParentId(Long userId, String name, Long parentId);
+    boolean existsByUserIdAndNameAndParentIdIsNull(Long userId, String name);
+    List<Folder> findByUserIdAndParentIdIsNullOrderBySortOrder(Long userId);
+    List<Folder> findByUserIdAndParentIdOrderBySortOrder(Long userId, Long parentId);
 }

@@ -2,13 +2,14 @@ package com.studydocs.manager.search;
 
 import com.studydocs.manager.entity.*;
 import com.studydocs.manager.repository.DocumentRepository;
-import com.studydocs.manager.service.TikaMetadataService;
+import com.studydocs.manager.service.file.TikaMetadataService;
 import com.studydocs.manager.storage.StorageProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -30,6 +31,7 @@ import java.util.stream.Collectors;
  * Content limit: 10,000 characters preview
  */
 @Service
+@ConditionalOnProperty(name = "search.indexing.enabled", havingValue = "true", matchIfMissing = false)
 public class DocumentIndexingService {
 
     private static final Logger logger = LoggerFactory.getLogger(DocumentIndexingService.class);
