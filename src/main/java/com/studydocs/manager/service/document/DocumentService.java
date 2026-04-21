@@ -1,5 +1,6 @@
 package com.studydocs.manager.service.document;
 
+import com.studydocs.manager.application.file.FileManagerApplicationService;
 import com.studydocs.manager.dto.document.DocumentCreateRequest;
 import com.studydocs.manager.dto.document.DocumentResponse;
 import com.studydocs.manager.dto.document.DocumentUpdateRequest;
@@ -15,11 +16,9 @@ import com.studydocs.manager.exception.ForbiddenException;
 import com.studydocs.manager.exception.NotFoundException;
 import com.studydocs.manager.repository.DocumentRepository;
 import com.studydocs.manager.repository.UserRepository;
-import com.studydocs.manager.service.file.DeleteDocumentUseCase;
 import com.studydocs.manager.service.file.FileManagerNamePolicy;
 import com.studydocs.manager.service.file.FileManagerNamespaceService;
 import com.studydocs.manager.service.file.FileManagerResponseMapper;
-import com.studydocs.manager.service.file.RestoreDocumentUseCase;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,8 +45,7 @@ public class DocumentService {
     private final UserRepository userRepository;
     private final FileManagerNamePolicy fileManagerNamePolicy;
     private final FileManagerNamespaceService fileManagerNamespaceService;
-    private final DeleteDocumentUseCase deleteDocumentUseCase;
-    private final RestoreDocumentUseCase restoreDocumentUseCase;
+    private final FileManagerApplicationService fileManagerApplicationService;
     private final FileManagerResponseMapper fileManagerResponseMapper;
 
     // Delegated services
@@ -61,8 +59,7 @@ public class DocumentService {
             UserRepository userRepository,
             FileManagerNamePolicy fileManagerNamePolicy,
             FileManagerNamespaceService fileManagerNamespaceService,
-            DeleteDocumentUseCase deleteDocumentUseCase,
-            RestoreDocumentUseCase restoreDocumentUseCase,
+            FileManagerApplicationService fileManagerApplicationService,
             FileManagerResponseMapper fileManagerResponseMapper,
             DocumentPermissionService permissionService,
             DocumentAssetService assetService,
@@ -72,8 +69,7 @@ public class DocumentService {
         this.userRepository = userRepository;
         this.fileManagerNamePolicy = fileManagerNamePolicy;
         this.fileManagerNamespaceService = fileManagerNamespaceService;
-        this.deleteDocumentUseCase = deleteDocumentUseCase;
-        this.restoreDocumentUseCase = restoreDocumentUseCase;
+        this.fileManagerApplicationService = fileManagerApplicationService;
         this.fileManagerResponseMapper = fileManagerResponseMapper;
         this.permissionService = permissionService;
         this.assetService = assetService;
@@ -191,13 +187,13 @@ public class DocumentService {
 
     @Transactional
     public void deleteDocument(Long id) {
-        deleteDocumentUseCase.execute(id);
+        fileManagerApplicationService.deleteDocument(id);
         logger.info("Document deleted (soft) via file-manager command flow - id: {}", id);
     }
 
     @Transactional
     public DocumentResponse restoreDocument(Long id) {
-        Document restored = restoreDocumentUseCase.execute(id);
+        Document restored = fileManagerApplicationService.restoreDocument(id);
         logger.info("Document restored via file-manager command flow - id: {}", id);
         return fileManagerResponseMapper.toDocumentResponse(restored);
     }

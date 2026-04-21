@@ -1,5 +1,6 @@
 package com.studydocs.manager.service.folder;
 
+import com.studydocs.manager.application.file.FileManagerApplicationService;
 import com.studydocs.manager.dto.folder.FolderCreateRequest;
 import com.studydocs.manager.dto.folder.FolderDeleteResult;
 import com.studydocs.manager.dto.folder.FolderResponse;
@@ -19,11 +20,9 @@ import com.studydocs.manager.repository.DocumentRepository;
 import com.studydocs.manager.repository.FolderRepository;
 import com.studydocs.manager.repository.UserRepository;
 import com.studydocs.manager.security.utils.SecurityUtils;
-import com.studydocs.manager.service.file.DeleteFolderUseCase;
 import com.studydocs.manager.service.file.FileManagerNamePolicy;
 import com.studydocs.manager.service.file.FileManagerNamespaceService;
 import com.studydocs.manager.service.file.FileManagerResponseMapper;
-import com.studydocs.manager.service.file.RestoreFolderUseCase;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
@@ -44,8 +43,7 @@ public class FolderService {
     private final SecurityUtils securityUtils;
     private final FileManagerNamePolicy fileManagerNamePolicy;
     private final FileManagerNamespaceService fileManagerNamespaceService;
-    private final DeleteFolderUseCase deleteFolderUseCase;
-    private final RestoreFolderUseCase restoreFolderUseCase;
+    private final FileManagerApplicationService fileManagerApplicationService;
     private final FileManagerResponseMapper fileManagerResponseMapper;
 
     public FolderService(
@@ -56,8 +54,7 @@ public class FolderService {
             SecurityUtils securityUtils,
             FileManagerNamePolicy fileManagerNamePolicy,
             FileManagerNamespaceService fileManagerNamespaceService,
-            DeleteFolderUseCase deleteFolderUseCase,
-            RestoreFolderUseCase restoreFolderUseCase,
+            FileManagerApplicationService fileManagerApplicationService,
             FileManagerResponseMapper fileManagerResponseMapper) {
         this.folderRepository = folderRepository;
         this.documentRepository = documentRepository;
@@ -66,8 +63,7 @@ public class FolderService {
         this.securityUtils = securityUtils;
         this.fileManagerNamePolicy = fileManagerNamePolicy;
         this.fileManagerNamespaceService = fileManagerNamespaceService;
-        this.deleteFolderUseCase = deleteFolderUseCase;
-        this.restoreFolderUseCase = restoreFolderUseCase;
+        this.fileManagerApplicationService = fileManagerApplicationService;
         this.fileManagerResponseMapper = fileManagerResponseMapper;
     }
 
@@ -156,12 +152,12 @@ public class FolderService {
 
     @Transactional
     public FolderDeleteResult deleteFolder(Long id) {
-        return deleteFolderUseCase.execute(id);
+        return fileManagerApplicationService.deleteFolder(id);
     }
 
     @Transactional
     public FolderResponse restoreFolder(Long id) {
-        Folder restored = restoreFolderUseCase.execute(id);
+        Folder restored = fileManagerApplicationService.restoreFolder(id);
         return fileManagerResponseMapper.toFolderResponse(restored);
     }
 
