@@ -1,10 +1,11 @@
 package com.studydocs.manager.dto.user;
+
 import com.studydocs.manager.validation.ValidGmail;
 import com.studydocs.manager.validation.ValidPhoneNumber;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.Pattern;
-import java.util.Set;
+
 public class UserUpdateRequest {
 
     @Email(message = "Email should be valid")
@@ -12,16 +13,13 @@ public class UserUpdateRequest {
     private String email;
 
     @Size(min = 8, max = 64, message = "Password must be between 8 and 64 characters")
-    @Pattern(
-            regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&.,;:_+\\-=^#()\\[\\]{}|<>]).{8,64}$",
-            message = "Password must have upper, lower, digit, special char, no spaces"
-    )
+    @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&.,;:_+\\-=^#()\\[\\]{}|<>]).{8,64}$", message = "Password must have upper, lower, digit, special char, no spaces")
     private String password;
     private String fullname;
     @ValidPhoneNumber(message = "Phonenumber Invalid. Please format  (Such as: +84123456789, 0123456789)")
     private String phone;
     private Boolean enabled;
-    private Set<String> roles;
+    private String role;
 
     public UserUpdateRequest() {
     }
@@ -66,11 +64,11 @@ public class UserUpdateRequest {
         this.enabled = enabled;
     }
 
-    public Set<String> getRoles() {
-        return roles;
+    public String getRole() {
+        return role;
     }
 
-    public void setRoles(Set<String> roles) {
-        this.roles = roles;
+    public void setRole(String role) {
+        this.role = role;
     }
 }

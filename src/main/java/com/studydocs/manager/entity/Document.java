@@ -1,18 +1,23 @@
 package com.studydocs.manager.entity;
 
+import com.studydocs.manager.enums.DocumentStatus;
+import com.studydocs.manager.enums.DocumentVisibility;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Set;
 
 @Entity
 @Table(name = "documents", indexes = {
-        @Index(name = "idx_documents_user_id", columnList = "user_id"),
-        @Index(name = "idx_documents_status", columnList = "status"),
-        @Index(name = "idx_documents_visibility", columnList = "visibility"),
-        @Index(name = "idx_documents_created_at", columnList = "created_at"),
+        @Index(name = "idx_documents_user_deleted_created", columnList = "user_id, deleted_at, created_at"),
+        @Index(name = "idx_documents_user_status_deleted", columnList = "user_id, status, deleted_at"),
+        @Index(name = "idx_documents_user_folder_deleted", columnList = "user_id, folder_id, deleted_at"),
+        @Index(name = "idx_documents_user_folder_display_deleted", columnList = "user_id, folder_id, normalized_display_name, deleted_at"),
+        @Index(name = "idx_documents_visibility_status_deleted", columnList = "visibility, status, deleted_at"),
+        @Index(name = "idx_documents_cleanup_status_deleted", columnList = "status, deleted_at"),
         @Index(name = "idx_documents_rating_average", columnList = "rating_average"),
-        @Index(name = "idx_documents_folder_id", columnList = "folder_id")
+        @Index(name = "idx_documents_deleted_root_folder", columnList = "deleted_root_folder_id")
 })
 public class Document {
 
@@ -30,26 +35,11 @@ public class Document {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(columnDefinition = "LONGTEXT")
-    private String content;
+    @Column(name = "display_name", length = 500)
+    private String displayName;
 
-    @Column(name = "file_url", length = 1000)
-    private String fileUrl;
-
-    @Column(name = "object_name", length = 1000)
-    private String objectName;
-
-    @Column(name = "file_name", length = 500)
-    private String fileName;
-
-    @Column(name = "file_size")
-    private Long fileSize;
-
-    @Column(name = "file_type", length = 50)
-    private String fileType;
-
-    @Column(name = "thumbnail_url", length = 1000)
-    private String thumbnailUrl;
+    @Column(name = "normalized_display_name", length = 500)
+    private String normalizedDisplayName;
 
     @Column(nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
@@ -62,12 +52,6 @@ public class Document {
     @Column(name = "is_featured")
     private Boolean isFeatured = false;
 
-    @Column(name = "view_count")
-    private Integer viewCount = 0;
-
-    @Column(name = "download_count")
-    private Integer downloadCount = 0;
-
     @Column(name = "favorite_count")
     private Integer favouriteCount = 0;
 
@@ -79,10 +63,6 @@ public class Document {
 
     @Column(name = "version_number")
     private Integer versionNumber = 1;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "parent_document_id")
-    private Document parentDocument;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "folder_id")
@@ -112,24 +92,36 @@ public class Document {
     @JoinColumn(name = "deleted_by")
     private User deletedBy;
 
+    @Column(name = "deleted_root_folder_id")
+    private Long deletedRootFolderId;
+
     // Relationships
-    @OneToMany(mappedBy = "document", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<DocumentVersion> versions = new HashSet<>();
-
-    @OneToMany(mappedBy = "document", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<DocumentEvent> events = new HashSet<>();
-
-    @OneToMany(mappedBy = "document", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<DocumentRating> ratings = new HashSet<>();
-
     @OneToMany(mappedBy = "document", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<DocumentSubject> documentSubjects = new HashSet<>();
 
     @OneToMany(mappedBy = "document", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<DocumentTag> documentTags = new HashSet<>();
 
-    @OneToMany(mappedBy = "parentDocument", cascade = CascadeType.ALL)
-    private Set<Document> childDocuments = new HashSet<>();
+    @OneToMany(mappedBy = "document", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<DocumentEvent> documentEvents = new HashSet<>();
+
+    @OneToMany(mappedBy = "document", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<DocumentDailyStat> documentDailyStats = new HashSet<>();
+
+    @OneToMany(mappedBy = "document", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<DocumentFavourite> documentFavourites = new HashSet<>();
+
+    @OneToMany(mappedBy = "document", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<DocumentRating> documentRatings = new HashSet<>();
+
+    @OneToMany(mappedBy = "document", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<DocumentShare> documentShares = new HashSet<>();
+
+    @OneToMany(mappedBy = "document", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<DocumentVersion> documentVersions = new HashSet<>();
+
+    @OneToOne(mappedBy = "document", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private DocumentAsset asset;
 
     @PrePersist
     protected void onCreate() {
@@ -137,11 +129,13 @@ public class Document {
         if (createdBy == null && user != null) {
             createdBy = user;
         }
+        normalizedDisplayName = normalizeDisplayName(displayName);
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+        normalizedDisplayName = normalizeDisplayName(displayName);
     }
 
     // Getters and Setters
@@ -177,60 +171,20 @@ public class Document {
         this.description = description;
     }
 
-    public String getContent() {
-        return content;
+    public String getDisplayName() {
+        return displayName;
     }
 
-    public void setContent(String content) {
-        this.content = content;
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
     }
 
-    public String getFileUrl() {
-        return fileUrl;
+    public String getNormalizedDisplayName() {
+        return normalizedDisplayName;
     }
 
-    public void setFileUrl(String fileUrl) {
-        this.fileUrl = fileUrl;
-    }
-
-    public String getObjectName() {
-        return objectName;
-    }
-
-    public void setObjectName(String objectName) {
-        this.objectName = objectName;
-    }
-
-    public String getFileName() {
-        return fileName;
-    }
-
-    public void setFileName(String fileName) {
-        this.fileName = fileName;
-    }
-
-    public Long getFileSize() {
-        return fileSize;
-    }
-
-    public void setFileSize(Long fileSize) {
-        this.fileSize = fileSize;
-    }
-
-    public String getFileType() {
-        return fileType;
-    }
-
-    public void setFileType(String fileType) {
-        this.fileType = fileType;
-    }
-
-    public String getThumbnailUrl() {
-        return thumbnailUrl;
-    }
-
-    public void setThumbnailUrl(String thumbnailUrl) {
-        this.thumbnailUrl = thumbnailUrl;
+    public void setNormalizedDisplayName(String normalizedDisplayName) {
+        this.normalizedDisplayName = normalizedDisplayName;
     }
 
     public DocumentStatus getStatus() {
@@ -255,22 +209,6 @@ public class Document {
 
     public void setIsFeatured(Boolean isFeatured) {
         this.isFeatured = isFeatured;
-    }
-
-    public Integer getViewCount() {
-        return viewCount;
-    }
-
-    public void setViewCount(Integer viewCount) {
-        this.viewCount = viewCount;
-    }
-
-    public Integer getDownloadCount() {
-        return downloadCount;
-    }
-
-    public void setDownloadCount(Integer downloadCount) {
-        this.downloadCount = downloadCount;
     }
 
     public Integer getFavouriteCount() {
@@ -303,14 +241,6 @@ public class Document {
 
     public void setVersionNumber(Integer versionNumber) {
         this.versionNumber = versionNumber;
-    }
-
-    public Document getParentDocument() {
-        return parentDocument;
-    }
-
-    public void setParentDocument(Document parentDocument) {
-        this.parentDocument = parentDocument;
     }
 
     public Folder getFolder() {
@@ -377,28 +307,12 @@ public class Document {
         this.deletedBy = deletedBy;
     }
 
-    public Set<DocumentVersion> getVersions() {
-        return versions;
+    public Long getDeletedRootFolderId() {
+        return deletedRootFolderId;
     }
 
-    public void setVersions(Set<DocumentVersion> versions) {
-        this.versions = versions;
-    }
-
-    public Set<DocumentEvent> getEvents() {
-        return events;
-    }
-
-    public void setEvents(Set<DocumentEvent> events) {
-        this.events = events;
-    }
-
-    public Set<DocumentRating> getRatings() {
-        return ratings;
-    }
-
-    public void setRatings(Set<DocumentRating> ratings) {
-        this.ratings = ratings;
+    public void setDeletedRootFolderId(Long deletedRootFolderId) {
+        this.deletedRootFolderId = deletedRootFolderId;
     }
 
     public Set<DocumentSubject> getDocumentSubjects() {
@@ -417,20 +331,71 @@ public class Document {
         this.documentTags = documentTags;
     }
 
-    public Set<Document> getChildDocuments() {
-        return childDocuments;
+    public Set<DocumentEvent> getDocumentEvents() {
+        return documentEvents;
     }
 
-    public void setChildDocuments(Set<Document> childDocuments) {
-        this.childDocuments = childDocuments;
+    public void setDocumentEvents(Set<DocumentEvent> documentEvents) {
+        this.documentEvents = documentEvents;
     }
 
-    // Enums
-    public enum DocumentStatus {
-        DRAFT, PUBLISHED, ARCHIVED, DELETED
+    public Set<DocumentDailyStat> getDocumentDailyStats() {
+        return documentDailyStats;
     }
 
-    public enum DocumentVisibility {
-        PRIVATE, PUBLIC, SHARED
+    public void setDocumentDailyStats(Set<DocumentDailyStat> documentDailyStats) {
+        this.documentDailyStats = documentDailyStats;
     }
+
+    public Set<DocumentFavourite> getDocumentFavourites() {
+        return documentFavourites;
+    }
+
+    public void setDocumentFavourites(Set<DocumentFavourite> documentFavourites) {
+        this.documentFavourites = documentFavourites;
+    }
+
+    public Set<DocumentRating> getDocumentRatings() {
+        return documentRatings;
+    }
+
+    public void setDocumentRatings(Set<DocumentRating> documentRatings) {
+        this.documentRatings = documentRatings;
+    }
+
+    public Set<DocumentShare> getDocumentShares() {
+        return documentShares;
+    }
+
+    public void setDocumentShares(Set<DocumentShare> documentShares) {
+        this.documentShares = documentShares;
+    }
+
+    public Set<DocumentVersion> getDocumentVersions() {
+        return documentVersions;
+    }
+
+    public void setDocumentVersions(Set<DocumentVersion> documentVersions) {
+        this.documentVersions = documentVersions;
+    }
+
+    public DocumentAsset getAsset() {
+        return asset;
+    }
+
+    public void setAsset(DocumentAsset asset) {
+        this.asset = asset;
+        if (asset != null && asset.getDocument() != this) {
+            asset.setDocument(this);
+        }
+    }
+
+    private String normalizeDisplayName(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed.toLowerCase(Locale.ROOT);
+    }
+
 }

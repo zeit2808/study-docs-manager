@@ -1,4 +1,5 @@
 package com.studydocs.manager.service.document;
+import com.studydocs.manager.enums.*;
 
 import com.studydocs.manager.entity.Document;
 import com.studydocs.manager.entity.DocumentEvent;
@@ -7,23 +8,27 @@ import com.studydocs.manager.repository.DocumentEventRepository;
 import com.studydocs.manager.repository.DocumentRepository;
 import com.studydocs.manager.repository.UserRepository;
 import jakarta.transaction.Transactional;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
-import javax.print.Doc;
-
+@Service
 public class DocumentEventService {
-    @Autowired
-    private DocumentEventRepository documentEventRepository;
+    private final DocumentEventRepository documentEventRepository;
+    private final UserRepository userRepository;
+    private final DocumentRepository documentRepository;
 
-    @Autowired
-    private UserRepository userRepository;
+    public DocumentEventService(
+            DocumentEventRepository documentEventRepository,
+            UserRepository userRepository,
+            DocumentRepository documentRepository) {
+        this.documentEventRepository = documentEventRepository;
+        this.userRepository = userRepository;
+        this.documentRepository = documentRepository;
+    }
 
-    @Autowired
-    private DocumentRepository documentRepository;
     @Transactional
-    public void logEvent(Long documentID, Long userId, DocumentEvent.DocumentEventType eventType,
-                         String description, String oldValue, String newValue,
-                         String ipAddress, String userAgent){
+    public void logEvent(Long documentID, Long userId, DocumentEventType eventType,
+            String description, String oldValue, String newValue,
+            String ipAddress, String userAgent) {
         Document document = documentRepository.findById(documentID).orElse(null);
         User user = userId != null ? userRepository.findById(userId).orElse(null) : null;
 
@@ -34,8 +39,7 @@ public class DocumentEventService {
         event.setEventDescription(description);
         event.setOldValue(oldValue);
         event.setNewValue(newValue);
-        event.setIpAddress(ipAddress);
-        event.setUserAgent(userAgent);
+        // ipAddress & userAgent removed from DocumentEvent (belongs to AuditLog only)
 
         documentEventRepository.save(event);
     }

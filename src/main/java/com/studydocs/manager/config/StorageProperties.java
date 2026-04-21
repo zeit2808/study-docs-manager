@@ -28,6 +28,8 @@ public class StorageProperties {
      */
     private String thumbnailsFolder = "thumbnails/";
 
+    private String avatarsFolder = "avatars/";
+
     // Getters and Setters
     public String getProvider() {
         return provider;
@@ -51,5 +53,13 @@ public class StorageProperties {
 
     public void setThumbnailsFolder(String thumbnailsFolder) {
         this.thumbnailsFolder = thumbnailsFolder;
+    }
+
+    public String getAvatarsFolder() {
+        return avatarsFolder;
+    }
+
+    public void setAvatarsFolder(String avatarsFolder) {
+        this.avatarsFolder = avatarsFolder;
     }
 }

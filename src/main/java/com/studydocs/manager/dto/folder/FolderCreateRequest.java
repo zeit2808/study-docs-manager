@@ -8,8 +8,6 @@ public class FolderCreateRequest {
     @Size(max = 200)
     private String name;
     private Long parentId;   // null = root folder
-    private String color;    // hex color, e.g. "#FF5733"
-    private String icon;     // icon name, e.g. "folder-open"
     private Integer sortOrder;
     // getters/setters...
 
@@ -27,22 +25,6 @@ public class FolderCreateRequest {
 
     public void setParentId(Long parentId) {
         this.parentId = parentId;
-    }
-
-    public String getColor() {
-        return color;
-    }
-
-    public void setColor(String color) {
-        this.color = color;
-    }
-
-    public String getIcon() {
-        return icon;
-    }
-
-    public void setIcon(String icon) {
-        this.icon = icon;
     }
 
     public Integer getSortOrder() {

@@ -27,12 +27,6 @@ public class Tag {
     @Column(nullable = false, unique = true, length = 100)
     private String slug;
 
-    @Column(length = 20)
-    private String color;
-
-    @Column(name = "document_count")
-    private Integer documentCount = 0;
-
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -45,25 +39,44 @@ public class Tag {
     }
 
     // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getSlug() { return slug; }
-    public void setSlug(String slug) { this.slug = slug; }
+    public String getName() {
+        return name;
+    }
 
-    public String getColor() { return color; }
-    public void setColor(String color) { this.color = color; }
+    public void setName(String name) {
+        this.name = name;
+    }
 
-    public Integer getDocumentCount() { return documentCount; }
-    public void setDocumentCount(Integer documentCount) { this.documentCount = documentCount; }
+    public String getSlug() {
+        return slug;
+    }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public void setSlug(String slug) {
+        this.slug = slug;
+    }
 
-    public Set<DocumentTag> getDocumentTags() { return documentTags; }
-    public void setDocumentTags(Set<DocumentTag> documentTags) { this.documentTags = documentTags; }
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Set<DocumentTag> getDocumentTags() {
+        return documentTags;
+    }
+
+    public void setDocumentTags(Set<DocumentTag> documentTags) {
+        this.documentTags = documentTags;
+    }
 
 }

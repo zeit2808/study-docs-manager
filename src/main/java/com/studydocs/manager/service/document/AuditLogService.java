@@ -1,4 +1,5 @@
 package com.studydocs.manager.service.document;
+import com.studydocs.manager.enums.*;
 
 import com.studydocs.manager.entity.AuditLog;
 import com.studydocs.manager.repository.AuditLogRepository;
@@ -14,11 +15,11 @@ public class AuditLogService {
     }
 
     public void log(Long actorId,
-                    Long targetUserId,
-                    String action,
-                    String details,
-                    String ip,
-                    String userAgent) {
+            Long targetUserId,
+            AuditAction action,
+            String details,
+            String ip,
+            String userAgent) {
         AuditLog log = new AuditLog();
         log.setActorId(actorId);
         log.setTargetUserId(targetUserId);
@@ -29,4 +30,3 @@ public class AuditLogService {
         auditLogRepository.save(log);
     }
 }
-

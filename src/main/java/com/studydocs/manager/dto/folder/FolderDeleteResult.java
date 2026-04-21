@@ -2,16 +2,13 @@ package com.studydocs.manager.dto.folder;
 
 public class FolderDeleteResult {
     private Long deletedFolderId;
-    private boolean cascade;
     private int affectedDocuments;
     private String message;
-    public FolderDeleteResult(Long folderId, boolean cascade, int affectedDocuments) {
+
+    public FolderDeleteResult(Long folderId, int affectedDocuments) {
         this.deletedFolderId = folderId;
-        this.cascade = cascade;
         this.affectedDocuments = affectedDocuments;
-        this.message = cascade
-                ? affectedDocuments + " document(s) were soft-deleted along with the folder."
-                : affectedDocuments + " document(s) were unlinked and kept.";
+        this.message = affectedDocuments + " document(s) were moved to trash along with the folder tree.";
     }
 
     public Long getDeletedFolderId() {
@@ -20,14 +17,6 @@ public class FolderDeleteResult {
 
     public void setDeletedFolderId(Long deletedFolderId) {
         this.deletedFolderId = deletedFolderId;
-    }
-
-    public boolean isCascade() {
-        return cascade;
-    }
-
-    public void setCascade(boolean cascade) {
-        this.cascade = cascade;
     }
 
     public int getAffectedDocuments() {

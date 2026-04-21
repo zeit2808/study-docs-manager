@@ -1,9 +1,16 @@
 package com.studydocs.manager.entity;
 
+import com.studydocs.manager.enums.DocumentEventType;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
 
+/**
+ * Ghi lại lifecycle event của document: thay đổi trạng thái, chia sẻ, rating...
+ * <p>
+ * KHÔNG dùng để log VIEWED/DOWNLOADED (quá nhiều → bùng nổ bảng).
+ * View/Download tracking → DocumentDailyStat (aggregate theo ngày).
+ */
 @Entity
 @Table(name = "document_events", indexes = {
         @Index(name = "idx_document_events_document_id", columnList = "document_id, created_at"),
@@ -37,12 +44,6 @@ public class DocumentEvent {
     @Column(name = "new_value", columnDefinition = "TEXT")
     private String newValue; // JSON format
 
-    @Column(name = "ip_address", length = 45)
-    private String ipAddress;
-
-    @Column(name = "user_agent", length = 500)
-    private String userAgent;
-
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -51,57 +52,69 @@ public class DocumentEvent {
         createdAt = LocalDateTime.now();
     }
 
-    // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public Document getDocument() { return document; }
-    public void setDocument(Document document) { this.document = document; }
-
-    public User getUser() { return user; }
-    public void setUser(User user) { this.user = user; }
-
-    public DocumentEventType getEventType() { return eventType; }
-    public void setEventType(DocumentEventType eventType) { this.eventType = eventType; }
-
-    public String getEventDescription() { return eventDescription; }
-    public void setEventDescription(String eventDescription) { this.eventDescription = eventDescription; }
-
-    public String getOldValue() { return oldValue; }
-    public void setOldValue(String oldValue) { this.oldValue = oldValue; }
-
-    public String getNewValue() { return newValue; }
-    public void setNewValue(String newValue) { this.newValue = newValue; }
-
-    public String getIpAddress() { return ipAddress; }
-    public void setIpAddress(String ipAddress) { this.ipAddress = ipAddress; }
-
-    public String getUserAgent() { return userAgent; }
-    public void setUserAgent(String userAgent) { this.userAgent = userAgent; }
-
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-
-    // Enum for Event Types
-    public enum DocumentEventType {
-        CREATED,
-        UPDATED,
-        DELETED,
-        RESTORED,
-        VERSION_CREATED,
-        VERSION_RESTORED,
-        PUBLISHED,
-        ARCHIVED,
-        SHARED,
-        VIEWED,
-        DOWNLOADED,
-        RATED,
-        SUBJECT_ADDED,
-        SUBJECT_REMOVED,
-        TAG_ADDED,
-        TAG_REMOVED
+    // ── Getters & Setters ─────────────────────────────────────────────────────
+    public Long getId() {
+        return id;
     }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Document getDocument() {
+        return document;
+    }
+
+    public void setDocument(Document document) {
+        this.document = document;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+
+    public DocumentEventType getEventType() {
+        return eventType;
+    }
+
+    public void setEventType(DocumentEventType eventType) {
+        this.eventType = eventType;
+    }
+
+    public String getEventDescription() {
+        return eventDescription;
+    }
+
+    public void setEventDescription(String eventDescription) {
+        this.eventDescription = eventDescription;
+    }
+
+    public String getOldValue() {
+        return oldValue;
+    }
+
+    public void setOldValue(String oldValue) {
+        this.oldValue = oldValue;
+    }
+
+    public String getNewValue() {
+        return newValue;
+    }
+
+    public void setNewValue(String newValue) {
+        this.newValue = newValue;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
 }
-
-
-

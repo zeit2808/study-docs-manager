@@ -1,17 +1,15 @@
 package com.studydocs.manager.controller.auth;
 
+import com.studydocs.manager.application.auth.AuthApplicationService;
+import com.studydocs.manager.dto.auth.ForgotPasswordRequest;
+import com.studydocs.manager.dto.auth.JwtResponse;
 import com.studydocs.manager.dto.auth.LoginRequest;
 import com.studydocs.manager.dto.auth.RegisterRequest;
-import com.studydocs.manager.dto.auth.ForgotPasswordRequest;
 import com.studydocs.manager.dto.auth.ResetPasswordRequest;
-import com.studydocs.manager.dto.auth.JwtResponse;
 import com.studydocs.manager.dto.user.UserResponse;
-import com.studydocs.manager.service.auth.AuthService;
-import com.studydocs.manager.service.auth.PasswordResetService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,74 +24,40 @@ import java.util.Map;
 @RequestMapping("/api/auth")
 @Tag(name = "Authentication", description = "APIs for user authentication and authorization")
 public class AuthController {
-    @Autowired
-    private AuthService authService;
-    @Autowired
-    private PasswordResetService passwordResetService;
+    private final AuthApplicationService authApplicationService;
+
+    public AuthController(AuthApplicationService authApplicationService) {
+        this.authApplicationService = authApplicationService;
+    }
 
     @PostMapping("/login")
     @Operation(summary = "User Login", description = "Authenticate user and return JWT token")
-    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest loginRequest) {
-        try {
-            JwtResponse response = authService.login(loginRequest);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            Map<String, Object> body = new LinkedHashMap<>();
-            body.put("status", 401);
-            body.put("error", "Unauthorized");
-
-            // Nếu tài khoản đã bị khóa bởi Lockout Policy, trả thông báo rõ ràng
-            String errorMessage = e.getMessage();
-            if (errorMessage != null && errorMessage.contains("Account is locked")) {
-                body.put("message", errorMessage);
-                body.put("locked", true);
-            } else if (errorMessage != null && errorMessage.contains("User not found")) {
-                body.put("message", "Username/password is incorrect");
-            } else {
-                body.put("message", "Username/password is incorrect");
-            }
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
-        }
+    public ResponseEntity<JwtResponse> login(@Valid @RequestBody LoginRequest loginRequest) {
+        JwtResponse response = authApplicationService.login(loginRequest);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/register")
-    @Operation(summary = "User Registration", description = "Register a new user with default USER role. Roles in request will be ignored.")
+    @Operation(summary = "User Registration", description = "Register a new user with default USER role.")
     public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest registerRequest) {
-        try {
-            var user = authService.register(registerRequest);
-            UserResponse response = new UserResponse();
-            response.setId(user.getId());
-            response.setUsename(user.getUsername());
-            response.setEmail(user.getEmail());
-            response.setFullname(user.getFullname());
-            response.setPhone(user.getPhone());
-            response.setEnabled(user.getEnabled());
-            response.setCreatedAt(user.getCreatedAt());
-            response.setUpdateAt(user.getUpdateAt());
-            response.setRoles(user.getRoles().stream()
-                    .map(role -> "ROLE_" + role.getName())
-                    .collect(java.util.stream.Collectors.toSet()));
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(authApplicationService.register(registerRequest));
     }
 
     @PostMapping("/forgot-password")
     @Operation(summary = "Forgot Password", description = "Send OTP to user's email for password reset")
-    public ResponseEntity<String> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
-        passwordResetService.sendOtp(request);
-        return ResponseEntity.ok("If this email exists, an OTP has been sent.");
+    public ResponseEntity<Map<String, Object>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authApplicationService.sendPasswordResetOtp(request);
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("status", 200);
+        body.put("message", "OTP has been sent to your email. It expires in 5 minutes.");
+        return ResponseEntity.ok(body);
     }
 
     @PostMapping("/reset-password")
     @Operation(summary = "Reset Password", description = "Reset password using OTP sent to email")
     public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
-        try {
-            passwordResetService.resetPassword(request);
-            return ResponseEntity.ok("Password has been reset successfully.");
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
-        }
+        authApplicationService.resetPassword(request);
+        return ResponseEntity.ok("Password has been reset successfully.");
     }
 }

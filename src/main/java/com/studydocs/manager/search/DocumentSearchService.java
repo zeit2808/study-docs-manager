@@ -1,17 +1,28 @@
 package com.studydocs.manager.search;
 
 import co.elastic.clients.elasticsearch._types.FieldValue;
-import co.elastic.clients.elasticsearch._types.query_dsl.*;
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.MatchPhrasePrefixQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.MoreLikeThisQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.MultiMatchQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
+import com.studydocs.manager.config.SearchProperties;
 import com.studydocs.manager.dto.document.DocumentSearchRequest;
 import com.studydocs.manager.dto.document.DocumentSearchResponse;
 import com.studydocs.manager.dto.document.DocumentSearchResult;
+import com.studydocs.manager.enums.DocumentStatus;
+import com.studydocs.manager.enums.DocumentVisibility;
+import com.studydocs.manager.enums.SortOption;
+import com.studydocs.manager.enums.SortOrder;
+import com.studydocs.manager.storage.StorageProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
@@ -20,91 +31,83 @@ import org.springframework.data.elasticsearch.core.query.highlight.Highlight;
 import org.springframework.data.elasticsearch.core.query.highlight.HighlightField;
 import org.springframework.data.elasticsearch.core.query.highlight.HighlightParameters;
 import org.springframework.stereotype.Service;
-import org.springframework.data.elasticsearch.client.elc.NativeQueryBuilder;
-import co.elastic.clients.json.JsonData;
+
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.*;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
-/**
- * Service để thực hiện advanced search trên Elasticsearch
- */
 @Service
 @ConditionalOnProperty(name = "search.indexing.enabled", havingValue = "true", matchIfMissing = false)
 public class DocumentSearchService {
 
     private static final Logger logger = LoggerFactory.getLogger(DocumentSearchService.class);
 
-    @Autowired
-    private ElasticsearchOperations elasticsearchOperations;
+    private final ElasticsearchOperations elasticsearchOperations;
+    private final DocumentSearchRepository searchRepository;
+    private final SearchProperties searchProperties;
+    private final StorageProvider storageProvider;
 
-    @Autowired
-    private DocumentSearchRepository searchRepository;
+    public DocumentSearchService(ElasticsearchOperations elasticsearchOperations,
+            DocumentSearchRepository searchRepository,
+            SearchProperties searchProperties,
+            StorageProvider storageProvider) {
+        this.elasticsearchOperations = elasticsearchOperations;
+        this.searchRepository = searchRepository;
+        this.searchProperties = searchProperties;
+        this.storageProvider = storageProvider;
+    }
 
-    /**
-     * Advanced document search với filters, sorting và highlighting
-     */
     public DocumentSearchResponse searchDocuments(DocumentSearchRequest request) {
         long startTime = System.currentTimeMillis();
+        DocumentSearchRequest safeRequest = request != null ? request : new DocumentSearchRequest();
 
         try {
-            // Build query
             BoolQuery.Builder boolQueryBuilder = new BoolQuery.Builder();
+            applyPublicSearchPolicy(boolQueryBuilder);
 
-            // 1. Text search query (nếu có query string)
-            if (request.getQuery() != null && !request.getQuery().trim().isEmpty()) {
-                Query textQuery = buildTextSearchQuery(request.getQuery(), request.getFuzzySearch());
-                boolQueryBuilder.must(textQuery);
+            if (safeRequest.getQuery() != null && !safeRequest.getQuery().trim().isEmpty()) {
+                boolQueryBuilder.must(buildTextSearchQuery(safeRequest));
             }
 
-            // 2. Apply filters
-            applyFilters(boolQueryBuilder, request);
+            applyFilters(boolQueryBuilder, safeRequest);
 
-            // 3. Build final query
             Query finalQuery = boolQueryBuilder.build()._toQuery();
-
-            // 4. Build NativeQuery với sorting
-            NativeQuery nativeQuery = buildNativeQuery(finalQuery, request);
-
-            // 5. Execute search
+            NativeQuery nativeQuery = buildNativeQuery(finalQuery, safeRequest);
             SearchHits<DocumentSearchIndex> searchHits = elasticsearchOperations.search(
                     nativeQuery,
                     DocumentSearchIndex.class);
 
-            // 6. Convert to response
-            DocumentSearchResponse response = convertToResponse(searchHits, request);
-            response.setQuery(request.getQuery());
+            DocumentSearchResponse response = convertToResponse(searchHits, safeRequest);
+            response.setQuery(safeRequest.getQuery());
             response.setSearchTimeMs(System.currentTimeMillis() - startTime);
-
-            logger.info("Search completed: query='{}', hits={}, time={}ms",
-                    request.getQuery(), searchHits.getTotalHits(), response.getSearchTimeMs());
-
             return response;
-
         } catch (Exception e) {
             logger.error("Search failed: {}", e.getMessage(), e);
             throw new RuntimeException("Search failed: " + e.getMessage(), e);
         }
     }
 
-    /**
-     * Autocomplete suggestions cho title
-     */
     public List<String> autocomplete(String prefix) {
         if (prefix == null || prefix.trim().isEmpty()) {
             return Collections.emptyList();
         }
 
         try {
-            // Use match_phrase_prefix for autocomplete
-            Query autocompleteQuery = MatchPhrasePrefixQuery.of(m -> m
+            BoolQuery.Builder boolQueryBuilder = new BoolQuery.Builder();
+            applyPublicSearchPolicy(boolQueryBuilder);
+            boolQueryBuilder.must(MatchPhrasePrefixQuery.of(m -> m
                     .field("title.suggest")
-                    .query(prefix))._toQuery();
+                    .query(prefix))._toQuery());
 
             NativeQuery nativeQuery = NativeQuery.builder()
-                    .withQuery(autocompleteQuery)
+                    .withQuery(boolQueryBuilder.build()._toQuery())
                     .withPageable(PageRequest.of(0, 10))
                     .build();
 
@@ -116,37 +119,38 @@ public class DocumentSearchService {
                     .map(hit -> hit.getContent().getTitle())
                     .distinct()
                     .collect(Collectors.toList());
-
         } catch (Exception e) {
             logger.error("Autocomplete failed: {}", e.getMessage(), e);
             return Collections.emptyList();
         }
     }
 
-    /**
-     * Find similar documents (More Like This query)
-     */
     public List<DocumentSearchResult> findSimilarDocuments(Long documentId, int limit) {
         try {
-            // Fetch the original document
             Optional<DocumentSearchIndex> optionalDoc = searchRepository.findById(documentId);
             if (optionalDoc.isEmpty()) {
-                logger.warn("Document {} not found in search index", documentId);
                 return Collections.emptyList();
             }
 
-            // Build More Like This query
-            Query mltQuery = MoreLikeThisQuery.of(m -> m
+            DocumentSearchIndex source = optionalDoc.get();
+            if (source.getStatus() != DocumentStatus.PUBLISHED || source.getVisibility() != DocumentVisibility.PUBLIC) {
+                return Collections.emptyList();
+            }
+
+            BoolQuery.Builder boolQueryBuilder = new BoolQuery.Builder();
+            applyPublicSearchPolicy(boolQueryBuilder);
+            boolQueryBuilder.must(MoreLikeThisQuery.of(m -> m
                     .fields(Arrays.asList("title", "description", "tags"))
                     .like(l -> l.document(d -> d
                             .index("documents")
                             .id(documentId.toString())))
                     .minTermFreq(1)
-                    .maxQueryTerms(12))._toQuery();
+                    .maxQueryTerms(12))._toQuery());
+            boolQueryBuilder.mustNot(q -> q.term(t -> t.field("id").value(FieldValue.of(documentId))));
 
             NativeQuery nativeQuery = NativeQuery.builder()
-                    .withQuery(mltQuery)
-                    .withPageable(PageRequest.of(0, limit))
+                    .withQuery(boolQueryBuilder.build()._toQuery())
+                    .withPageable(PageRequest.of(0, Math.max(1, Math.min(limit, 20))))
                     .build();
 
             SearchHits<DocumentSearchIndex> searchHits = elasticsearchOperations.search(
@@ -156,70 +160,43 @@ public class DocumentSearchService {
             return searchHits.getSearchHits().stream()
                     .map(this::convertToResult)
                     .collect(Collectors.toList());
-
         } catch (Exception e) {
             logger.error("Find similar documents failed: {}", e.getMessage(), e);
             return Collections.emptyList();
         }
     }
 
-    /**
-     * Build text search query với multi-field matching và boosting
-     */
-    private Query buildTextSearchQuery(String queryText, Boolean fuzzySearch) {
-        if (fuzzySearch != null && fuzzySearch) {
-            // Fuzzy multi-match query cho typo tolerance
-            return MultiMatchQuery.of(m -> m
-                    .query(queryText)
-                    .fields("title^3", "description^2", "content^1")
-                    .fuzziness("AUTO")
-                    .prefixLength(2))._toQuery();
-        } else {
-            // Standard multi-match query
-            return MultiMatchQuery.of(m -> m
-                    .query(queryText)
-                    .fields("title^3", "description^2", "content^1"))._toQuery();
-        }
+    private void applyPublicSearchPolicy(BoolQuery.Builder boolQueryBuilder) {
+        boolQueryBuilder.filter(f -> f.term(t -> t.field("status").value(FieldValue.of(DocumentStatus.PUBLISHED.name()))));
+        boolQueryBuilder.filter(
+                f -> f.term(t -> t.field("visibility").value(FieldValue.of(DocumentVisibility.PUBLIC.name()))));
     }
 
-    /**
-     * Apply filters vào BoolQuery
-     */
+    private Query buildTextSearchQuery(DocumentSearchRequest request) {
+        boolean fuzzySearch = request.getFuzzySearch() != null
+                ? request.getFuzzySearch()
+                : searchProperties.isFuzzyEnabled();
+
+        if (fuzzySearch) {
+            return MultiMatchQuery.of(m -> m
+                    .query(request.getQuery())
+                    .fields("title^3", "description^2", "content")
+                    .fuzziness(searchProperties.getFuzzyFuzziness())
+                    .prefixLength(2))._toQuery();
+        }
+
+        return MultiMatchQuery.of(m -> m
+                .query(request.getQuery())
+                .fields("title^3", "description^2", "content"))._toQuery();
+    }
+
     private void applyFilters(BoolQuery.Builder boolQueryBuilder, DocumentSearchRequest request) {
-        // Status filter
-        if (request.getStatuses() != null && !request.getStatuses().isEmpty()) {
-            List<String> statusValues = request.getStatuses().stream()
-                    .map(Enum::name)
-                    .collect(Collectors.toList());
-
-            boolQueryBuilder.filter(f -> f.terms(t -> t
-                    .field("status")
-                    .terms(tv -> tv.value(statusValues.stream()
-                            .map(FieldValue::of)
-                            .collect(Collectors.toList())))));
-        }
-
-        // Visibility filter
-        if (request.getVisibilities() != null && !request.getVisibilities().isEmpty()) {
-            List<String> visibilityValues = request.getVisibilities().stream()
-                    .map(Enum::name)
-                    .collect(Collectors.toList());
-
-            boolQueryBuilder.filter(f -> f.terms(t -> t
-                    .field("visibility")
-                    .terms(tv -> tv.value(visibilityValues.stream()
-                            .map(FieldValue::of)
-                            .collect(Collectors.toList())))));
-        }
-
-        // Author filter
         if (request.getAuthorId() != null) {
             boolQueryBuilder.filter(f -> f.term(t -> t
                     .field("authorId")
                     .value(FieldValue.of(request.getAuthorId()))));
         }
 
-        // Tags filter (match any tag)
         if (request.getTags() != null && !request.getTags().isEmpty()) {
             boolQueryBuilder.filter(f -> f.terms(t -> t
                     .field("tags")
@@ -228,7 +205,6 @@ public class DocumentSearchService {
                             .collect(Collectors.toList())))));
         }
 
-        // Subject IDs filter
         if (request.getSubjectIds() != null && !request.getSubjectIds().isEmpty()) {
             boolQueryBuilder.filter(f -> f.terms(t -> t
                     .field("subjectIds")
@@ -237,7 +213,6 @@ public class DocumentSearchService {
                             .collect(Collectors.toList())))));
         }
 
-        // File types filter
         if (request.getFileTypes() != null && !request.getFileTypes().isEmpty()) {
             boolQueryBuilder.filter(f -> f.terms(t -> t
                     .field("fileType")
@@ -246,127 +221,89 @@ public class DocumentSearchService {
                             .collect(Collectors.toList())))));
         }
 
-        // Language filter
         if (request.getLanguage() != null && !request.getLanguage().isEmpty()) {
             boolQueryBuilder.filter(f -> f.term(t -> t
                     .field("language")
                     .value(FieldValue.of(request.getLanguage()))));
         }
 
-        // Folder filter
         if (request.getFolderId() != null) {
             boolQueryBuilder.filter(f -> f.term(t -> t
                     .field("folderId")
                     .value(FieldValue.of(request.getFolderId()))));
         }
 
-        // Featured filter
         if (request.getIsFeatured() != null) {
             boolQueryBuilder.filter(f -> f.term(t -> t
                     .field("isFeatured")
                     .value(FieldValue.of(request.getIsFeatured()))));
         }
 
-        // Date range filter (createdAt is Instant type in Elasticsearch)
         if (request.getDateFrom() != null || request.getDateTo() != null) {
-
             RangeQuery rangeQuery = RangeQuery.of(rq -> rq.date(dr -> {
                 dr.field("createdAt");
-
                 if (request.getDateFrom() != null) {
-                    // Convert LocalDateTime to Instant
                     Instant fromInstant = request.getDateFrom().toInstant(ZoneOffset.UTC);
-                    dr.gte(fromInstant.toString()); // ISO-8601 string
+                    dr.gte(fromInstant.toString());
                 }
                 if (request.getDateTo() != null) {
-                    // Convert LocalDateTime to Instant
                     Instant toInstant = request.getDateTo().toInstant(ZoneOffset.UTC);
                     dr.lte(toInstant.toString());
                 }
-
                 return dr;
             }));
 
             boolQueryBuilder.filter(q -> q.range(rangeQuery));
         }
 
-        // Rating filter (ratingAverage là number)
         if (request.getMinRating() != null) {
-            double min = request.getMinRating().doubleValue(); // BigDecimal -> double
-
             RangeQuery ratingRange = RangeQuery.of(rq -> rq.number(nr -> nr
                     .field("ratingAverage")
-                    .gte(min)));
-
+                    .gte(request.getMinRating().doubleValue())));
             boolQueryBuilder.filter(q -> q.range(ratingRange));
         }
     }
 
-    /**
-     * Build NativeQuery với sorting và highlighting
-     */
     private NativeQuery buildNativeQuery(Query query, DocumentSearchRequest request) {
-        int page = request.getPage() != null ? request.getPage() : 0;
-        int size = request.getSize() != null ? request.getSize() : 20;
+        int page = request.getPage() != null ? Math.max(0, request.getPage()) : 0;
+        int requestedSize = request.getSize() != null ? request.getSize() : 20;
+        int size = Math.max(1, Math.min(requestedSize, searchProperties.getMaxPageSize()));
 
         NativeQueryBuilder builder = NativeQuery.builder()
                 .withQuery(query)
                 .withPageable(PageRequest.of(page, size))
-                .withSort(buildSort(request)); // giờ sẽ hết lỗi
+                .withSort(buildSort(request));
 
-        if (Boolean.TRUE.equals(request.getHighlightResults())) {
+        boolean highlight = request.getHighlightResults() != null
+                ? request.getHighlightResults()
+                : searchProperties.isHighlightEnabled();
+        if (highlight) {
             builder.withHighlightQuery(buildHighlightQuery());
         }
 
         return builder.build();
     }
 
-    /**
-     * Build sort based on request
-     */
     private Sort buildSort(DocumentSearchRequest request) {
-        String sortField;
-        Sort.Direction direction = request.getSortOrder() == DocumentSearchRequest.SortOrder.ASC
+        SortOption sortBy = request.getSortBy() != null ? request.getSortBy() : SortOption.RELEVANCE;
+        Sort.Direction direction = request.getSortOrder() == SortOrder.ASC
                 ? Sort.Direction.ASC
                 : Sort.Direction.DESC;
 
-        switch (request.getSortBy()) {
-            case DATE:
-                sortField = "createdAt";
-                break;
-            case UPDATED:
-                sortField = "updatedAt";
-                break;
-            case RATING:
-                sortField = "ratingAverage";
-                break;
-            case VIEWS:
-                sortField = "viewCount";
-                break;
-            case DOWNLOADS:
-                sortField = "downloadCount";
-                break;
-            case FAVORITES:
-                sortField = "favouriteCount";
-                break;
-            case TITLE:
-                sortField = "title.keyword";
-                break;
-            case RELEVANCE:
-            default:
-                return Sort.by(Sort.Order.desc("_score"));
-        }
-
-        return Sort.by(direction, sortField);
+        return switch (sortBy) {
+            case DATE -> Sort.by(direction, "createdAt");
+            case UPDATED -> Sort.by(direction, "updatedAt");
+            case RATING -> Sort.by(direction, "ratingAverage");
+            case FAVORITES -> Sort.by(direction, "favouriteCount");
+            case TITLE -> Sort.by(direction, "title.keyword");
+            case RELEVANCE -> Sort.by(Sort.Order.desc("_score"));
+        };
     }
 
-    /**
-     * Build highlight query
-     */
     private HighlightQuery buildHighlightQuery() {
         HighlightParameters params = HighlightParameters.builder()
-                .withPreTags("<em class=\"highlight\">")
-                .withPostTags("</em>")
+                .withPreTags(searchProperties.getHighlightPreTag())
+                .withPostTags(searchProperties.getHighlightPostTag())
                 .withNumberOfFragments(3)
                 .withFragmentSize(150)
                 .build();
@@ -381,13 +318,11 @@ public class DocumentSearchService {
         return new HighlightQuery(highlight, DocumentSearchIndex.class);
     }
 
-    /**
-     * Convert SearchHits to DocumentSearchResponse
-     */
     private DocumentSearchResponse convertToResponse(SearchHits<DocumentSearchIndex> searchHits,
             DocumentSearchRequest request) {
-        int page = request.getPage() != null ? request.getPage() : 0;
-        int size = request.getSize() != null ? request.getSize() : 20;
+        int page = request.getPage() != null ? Math.max(0, request.getPage()) : 0;
+        int requestedSize = request.getSize() != null ? request.getSize() : 20;
+        int size = Math.max(1, Math.min(requestedSize, searchProperties.getMaxPageSize()));
 
         List<DocumentSearchResult> results = searchHits.getSearchHits().stream()
                 .map(this::convertToResult)
@@ -396,9 +331,6 @@ public class DocumentSearchService {
         return new DocumentSearchResponse(results, searchHits.getTotalHits(), page, size);
     }
 
-    /**
-     * Convert single SearchHit to DocumentSearchResult
-     */
     private DocumentSearchResult convertToResult(SearchHit<DocumentSearchIndex> hit) {
         DocumentSearchIndex index = hit.getContent();
         DocumentSearchResult result = new DocumentSearchResult();
@@ -408,40 +340,25 @@ public class DocumentSearchService {
         result.setDescription(index.getDescription());
         result.setScore(hit.getScore());
 
-        // Extract highlights
         Map<String, List<String>> highlights = hit.getHighlightFields();
         result.setHighlights(highlights);
-
-        // Author
         result.setAuthorId(index.getAuthorId());
         result.setAuthorName(index.getAuthorName());
         result.setAuthorUsername(index.getAuthorUsername());
-
-        // File info
         result.setFileName(index.getFileName());
         result.setFileType(index.getFileType());
         result.setFileSize(index.getFileSize());
-        result.setThumbnailUrl(index.getThumbnailUrl());
-
-        // Categories
+        result.setThumbnailUrl(generateUrl(index.getThumbnailObjectName()));
         result.setTags(index.getTags());
         result.setSubjectNames(index.getSubjectNames());
         result.setFolderName(index.getFolderName());
-
-        // Status
         result.setStatus(index.getStatus());
         result.setVisibility(index.getVisibility());
         result.setIsFeatured(index.getIsFeatured());
         result.setLanguage(index.getLanguage());
-
-        // Statistics
-        result.setViewCount(index.getViewCount());
-        result.setDownloadCount(index.getDownloadCount());
         result.setFavouriteCount(index.getFavouriteCount());
         result.setRatingAverage(index.getRatingAverage());
         result.setRatingCount(index.getRatingCount());
-
-        // Dates - Convert Instant back to LocalDateTime for API response
         result.setCreatedAt(index.getCreatedAt() != null
                 ? LocalDateTime.ofInstant(index.getCreatedAt(), ZoneOffset.UTC)
                 : null);
@@ -450,5 +367,17 @@ public class DocumentSearchService {
                 : null);
 
         return result;
+    }
+
+    private String generateUrl(String objectName) {
+        if (objectName == null || objectName.isBlank()) {
+            return null;
+        }
+        try {
+            return storageProvider.generatePresignedUrl(objectName, 7 * 24 * 60);
+        } catch (IOException e) {
+            logger.warn("Failed to generate thumbnail URL for object: {}", objectName, e);
+            return null;
+        }
     }
 }

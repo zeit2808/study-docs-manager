@@ -7,8 +7,6 @@ public class FolderResponse {
     private Long id;
     private String name;
     private Long parentId;
-    private String color;
-    private String icon;
     private Integer sortOrder;
     private Integer documentCount;
     private List<FolderResponse> children; // nested, populated khi cần
@@ -37,22 +35,6 @@ public class FolderResponse {
 
     public void setParentId(Long parentId) {
         this.parentId = parentId;
-    }
-
-    public String getColor() {
-        return color;
-    }
-
-    public void setColor(String color) {
-        this.color = color;
-    }
-
-    public String getIcon() {
-        return icon;
-    }
-
-    public void setIcon(String icon) {
-        this.icon = icon;
     }
 
     public Integer getSortOrder() {

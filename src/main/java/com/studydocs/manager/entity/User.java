@@ -1,38 +1,59 @@
 package com.studydocs.manager.entity;
+
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
+
+/**
+ * Mỗi user có DUY NHẤT 1 role (ManyToOne).
+ * Bỏ join table user_roles và Set<Role>.
+ */
 @Entity
-@Table(name="users")
+@Table(name = "users", indexes = {
+        @Index(name = "idx_users_role_id", columnList = "role_id")
+})
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private  Long id;
-    @Column(unique = true,nullable = false, length = 100)
+    private Long id;
+
+    @Column(unique = true, nullable = false, length = 100)
     private String username;
-    @Column(unique = true,nullable = false, length = 150)
+
+    @Column(unique = true, nullable = false, length = 150)
     private String email;
+
     @Column(nullable = false)
     private String password;
-    @Column(length = 100)
+
+    @Column(nullable = false, length = 100)
     private String fullname;
+
     @Column(length = 20)
     private String phone;
-    private Boolean enabled = true;
-    @Column(name="created_at",nullable = false)
-    private LocalDateTime createdAt;
-    @Column(name="updated_at")
-    private LocalDateTime updateAt;
-    @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(
-            name = "user_roles",
-            joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "role_id")
-    )
-    private  Set<Role> roles = new HashSet<>();
 
-    public User(){
+    private Boolean enabled = true;
+
+    /** 1 user = 1 role (bắt buộc) */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "role_id", nullable = false)
+    private Role role;
+
+    @Column(name = "avatar_object_name", length = 500)
+    private String avatarObjectName;
+
+    @Column(name = "failed_login_attempts")
+    private Integer failedLoginAttempts = 0;
+
+    @Column(name = "locked_until")
+    private java.time.LocalDateTime lockedUntil;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    public User() {
     }
 
     public User(String username, String email, String password) {
@@ -40,25 +61,19 @@ public class User {
         this.email = email;
         this.password = password;
     }
-    @Column(name = "avatar_url")
-    private String avatarUrl;
 
-    private Integer failedLoginAttempts = 0;
-    private java.time.LocalDateTime lockedUntil;
-
-    public Integer getFailedLoginAttempts() { return failedLoginAttempts; }
-    public void setFailedLoginAttempts(Integer failedLoginAttempts) { this.failedLoginAttempts = failedLoginAttempts; }
-
-    public LocalDateTime getLockedUntil() { return lockedUntil; }
-    public void setLockedUntil(LocalDateTime lockedUntil) { this.lockedUntil = lockedUntil; }
-    public String getAvatarUrl() {
-        return avatarUrl;
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
     }
 
-    public void setAvatarUrl(String avatarUrl) {
-        this.avatarUrl = avatarUrl;
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 
+    // ── Getters & Setters ─────────────────────────────────────────────────────
     public Long getId() {
         return id;
     }
@@ -115,6 +130,38 @@ public class User {
         this.enabled = enabled;
     }
 
+    public Role getRole() {
+        return role;
+    }
+
+    public void setRole(Role role) {
+        this.role = role;
+    }
+
+    public String getAvatarObjectName() {
+        return avatarObjectName;
+    }
+
+    public void setAvatarObjectName(String avatarObjectName) {
+        this.avatarObjectName = avatarObjectName;
+    }
+
+    public Integer getFailedLoginAttempts() {
+        return failedLoginAttempts;
+    }
+
+    public void setFailedLoginAttempts(Integer failedLoginAttempts) {
+        this.failedLoginAttempts = failedLoginAttempts;
+    }
+
+    public LocalDateTime getLockedUntil() {
+        return lockedUntil;
+    }
+
+    public void setLockedUntil(LocalDateTime lockedUntil) {
+        this.lockedUntil = lockedUntil;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -123,37 +170,11 @@ public class User {
         this.createdAt = createdAt;
     }
 
-    public LocalDateTime getUpdateAt() {
-        return updateAt;
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
     }
 
-    public void setUpdateAt(LocalDateTime updateAt) {
-        this.updateAt = updateAt;
-    }
-
-    public Set<Role> getRoles() {
-        return roles;
-    }
-
-    public void setRoles(Set<Role> roles) {
-        this.roles = roles;
-    }
-
-    @PrePersist
-    protected void onUpdated() {
-        createdAt = LocalDateTime.now();
-        updateAt = LocalDateTime.now();
-    }
-    @PreUpdate
-    protected void onUpdate(){
-        updateAt = LocalDateTime.now();
-    }
-    public void addRole(Role role){
-        this.roles.add(role);
-        role.getUsers().add(this);
-    }
-    public void removeRole(Role role ){
-        this.roles.remove(role);
-        role.getUsers().remove(this);
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }

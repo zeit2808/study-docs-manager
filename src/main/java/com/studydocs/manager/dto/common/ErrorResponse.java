@@ -1,17 +1,18 @@
 package com.studydocs.manager.dto.common;
 
-/**
- * ErrorResponse - DTO chung cho các error responses
- * 
- * Sử dụng cho các endpoint cần trả về error message rõ ràng
- */
+import java.time.LocalDateTime;
+import java.util.Map;
+
 public class ErrorResponse {
     private int status;
     private String error;
     private String message;
     private String path;
+    private String code;
+    private String field;
+    private Map<String, ?> errors;
+    private LocalDateTime timestamp;
 
-    // Constructors
     public ErrorResponse() {
     }
 
@@ -28,7 +29,6 @@ public class ErrorResponse {
         this.path = path;
     }
 
-    // Getters and Setters
     public int getStatus() {
         return status;
     }
@@ -59,5 +59,37 @@ public class ErrorResponse {
 
     public void setPath(String path) {
         this.path = path;
+    }
+
+    public String getCode() {
+        return code;
+    }
+
+    public void setCode(String code) {
+        this.code = code;
+    }
+
+    public String getField() {
+        return field;
+    }
+
+    public void setField(String field) {
+        this.field = field;
+    }
+
+    public Map<String, ?> getErrors() {
+        return errors;
+    }
+
+    public void setErrors(Map<String, ?> errors) {
+        this.errors = errors;
+    }
+
+    public LocalDateTime getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(LocalDateTime timestamp) {
+        this.timestamp = timestamp;
     }
 }

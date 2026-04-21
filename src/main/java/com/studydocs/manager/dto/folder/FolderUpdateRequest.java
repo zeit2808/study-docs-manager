@@ -6,9 +6,8 @@ public class FolderUpdateRequest {
     @Size(max = 200)
     private String name;
     private Long parentId;   // null = move to root
-    private String color;
-    private String icon;
     private Integer sortOrder;
+    private boolean parentIdProvided;
 
     public String getName() {
         return name;
@@ -24,22 +23,11 @@ public class FolderUpdateRequest {
 
     public void setParentId(Long parentId) {
         this.parentId = parentId;
+        this.parentIdProvided = true;
     }
 
-    public String getColor() {
-        return color;
-    }
-
-    public void setColor(String color) {
-        this.color = color;
-    }
-
-    public String getIcon() {
-        return icon;
-    }
-
-    public void setIcon(String icon) {
-        this.icon = icon;
+    public boolean isParentIdProvided() {
+        return parentIdProvided;
     }
 
     public Integer getSortOrder() {

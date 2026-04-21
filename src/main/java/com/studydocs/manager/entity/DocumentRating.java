@@ -12,9 +12,8 @@ import java.time.LocalDateTime;
         @Index(name = "idx_document_ratings_user_id", columnList = "user_id"),
         @Index(name = "idx_document_ratings_created_at", columnList = "created_at")
 }, uniqueConstraints = {
-        @UniqueConstraint(name = "uk_document_rating_user", columnNames = {"document_id", "user_id"})
+        @UniqueConstraint(name = "uk_document_rating_user", columnNames = { "document_id", "user_id" })
 })
-
 public class DocumentRating {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -36,9 +35,6 @@ public class DocumentRating {
     @Column(columnDefinition = "TEXT")
     private String comment;
 
-    @Column(name = "is_helpful")
-    private Boolean isHelpful;
-
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -55,29 +51,60 @@ public class DocumentRating {
         updatedAt = LocalDateTime.now();
     }
 
-    // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    // ── Getters & Setters ─────────────────────────────────────────────────────
+    public Long getId() {
+        return id;
+    }
 
-    public Document getDocument() { return document; }
-    public void setDocument(Document document) { this.document = document; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public User getUser() { return user; }
-    public void setUser(User user) { this.user = user; }
+    public Document getDocument() {
+        return document;
+    }
 
-    public Integer getRating() { return rating; }
-    public void setRating(Integer rating) { this.rating = rating; }
+    public void setDocument(Document document) {
+        this.document = document;
+    }
 
-    public String getComment() { return comment; }
-    public void setComment(String comment) { this.comment = comment; }
+    public User getUser() {
+        return user;
+    }
 
-    public Boolean getIsHelpful() { return isHelpful; }
-    public void setIsHelpful(Boolean isHelpful) { this.isHelpful = isHelpful; }
+    public void setUser(User user) {
+        this.user = user;
+    }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public Integer getRating() {
+        return rating;
+    }
 
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public void setRating(Integer rating) {
+        this.rating = rating;
+    }
 
+    public String getComment() {
+        return comment;
+    }
+
+    public void setComment(String comment) {
+        this.comment = comment;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
 }

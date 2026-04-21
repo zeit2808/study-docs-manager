@@ -4,12 +4,15 @@ import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Set;
 
 @Entity
 @Table(name = "folders", indexes = {
-        @Index(name = "idx_folders_user_id", columnList = "user_id, parent_id"),
-        @Index(name = "idx_folders_parent_id", columnList = "parent_id")
+        @Index(name = "idx_folders_user_parent_deleted", columnList = "user_id, parent_id, deleted_at"),
+        @Index(name = "idx_folders_user_parent_normalized_deleted", columnList = "user_id, parent_id, normalized_name, deleted_at"),
+        @Index(name = "idx_folders_parent_id", columnList = "parent_id"),
+        @Index(name = "idx_folders_deleted_root", columnList = "deleted_root_folder_id")
 })
 public class Folder {
     @Id
@@ -23,6 +26,9 @@ public class Folder {
     @Column(nullable = false, length = 200)
     private String name;
 
+    @Column(name = "normalized_name", length = 200)
+    private String normalizedName;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
     private Folder parent;
@@ -30,17 +36,18 @@ public class Folder {
     @OneToMany(mappedBy = "parent")
     private Set<Folder> children = new HashSet<>();
 
-    @Column(length = 20)
-    private String color;
-
-    @Column(length = 50)
-    private String icon;
-
     @Column(name = "sort_order")
     private Integer sortOrder = 0;
 
-    @Column(name = "document_count")
-    private Integer documentCount = 0;
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "deleted_by")
+    private User deletedBy;
+
+    @Column(name = "deleted_root_folder_id")
+    private Long deletedRootFolderId;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -54,11 +61,13 @@ public class Folder {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+        normalizedName = normalizeName(name);
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+        normalizedName = normalizeName(name);
     }
 
     // Getters and Setters
@@ -86,6 +95,14 @@ public class Folder {
         this.name = name;
     }
 
+    public String getNormalizedName() {
+        return normalizedName;
+    }
+
+    public void setNormalizedName(String normalizedName) {
+        this.normalizedName = normalizedName;
+    }
+
     public Folder getParent() {
         return parent;
     }
@@ -102,22 +119,6 @@ public class Folder {
         this.children = children;
     }
 
-    public String getColor() {
-        return color;
-    }
-
-    public void setColor(String color) {
-        this.color = color;
-    }
-
-    public String getIcon() {
-        return icon;
-    }
-
-    public void setIcon(String icon) {
-        this.icon = icon;
-    }
-
     public Integer getSortOrder() {
         return sortOrder;
     }
@@ -126,12 +127,28 @@ public class Folder {
         this.sortOrder = sortOrder;
     }
 
-    public Integer getDocumentCount() {
-        return documentCount;
+    public LocalDateTime getDeletedAt() {
+        return deletedAt;
     }
 
-    public void setDocumentCount(Integer documentCount) {
-        this.documentCount = documentCount;
+    public void setDeletedAt(LocalDateTime deletedAt) {
+        this.deletedAt = deletedAt;
+    }
+
+    public User getDeletedBy() {
+        return deletedBy;
+    }
+
+    public void setDeletedBy(User deletedBy) {
+        this.deletedBy = deletedBy;
+    }
+
+    public Long getDeletedRootFolderId() {
+        return deletedRootFolderId;
+    }
+
+    public void setDeletedRootFolderId(Long deletedRootFolderId) {
+        this.deletedRootFolderId = deletedRootFolderId;
     }
 
     public LocalDateTime getCreatedAt() {
@@ -156,6 +173,14 @@ public class Folder {
 
     public void setDocuments(Set<Document> documents) {
         this.documents = documents;
+    }
+
+    private String normalizeName(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed.toLowerCase(Locale.ROOT);
     }
 
 }

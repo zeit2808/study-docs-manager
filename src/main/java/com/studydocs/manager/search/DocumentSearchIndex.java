@@ -1,8 +1,9 @@
 package com.studydocs.manager.search;
+import com.studydocs.manager.enums.*;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.studydocs.manager.entity.Document.DocumentStatus;
-import com.studydocs.manager.entity.Document.DocumentVisibility;
+
+
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.*;
 
@@ -108,12 +109,6 @@ public class DocumentSearchIndex {
 
     // Statistics - for sorting and filtering
     @Field(type = FieldType.Integer)
-    private Integer viewCount;
-
-    @Field(type = FieldType.Integer)
-    private Integer downloadCount;
-
-    @Field(type = FieldType.Integer)
     private Integer favouriteCount;
 
     @Field(type = FieldType.Double)
@@ -138,7 +133,7 @@ public class DocumentSearchIndex {
 
     // Thumbnail
     @Field(type = FieldType.Keyword)
-    private String thumbnailUrl;
+    private String thumbnailObjectName;
 
     // Constructors
     public DocumentSearchIndex() {
@@ -311,22 +306,6 @@ public class DocumentSearchIndex {
         this.language = language;
     }
 
-    public Integer getViewCount() {
-        return viewCount;
-    }
-
-    public void setViewCount(Integer viewCount) {
-        this.viewCount = viewCount;
-    }
-
-    public Integer getDownloadCount() {
-        return downloadCount;
-    }
-
-    public void setDownloadCount(Integer downloadCount) {
-        this.downloadCount = downloadCount;
-    }
-
     public Integer getFavouriteCount() {
         return favouriteCount;
     }
@@ -375,11 +354,11 @@ public class DocumentSearchIndex {
         this.indexedAt = indexedAt;
     }
 
-    public String getThumbnailUrl() {
-        return thumbnailUrl;
+    public String getThumbnailObjectName() {
+        return thumbnailObjectName;
     }
 
-    public void setThumbnailUrl(String thumbnailUrl) {
-        this.thumbnailUrl = thumbnailUrl;
+    public void setThumbnailObjectName(String thumbnailObjectName) {
+        this.thumbnailObjectName = thumbnailObjectName;
     }
 }

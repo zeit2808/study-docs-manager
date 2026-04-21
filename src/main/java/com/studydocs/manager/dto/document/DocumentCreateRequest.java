@@ -13,9 +13,8 @@ public class DocumentCreateRequest {
     @Size(max = 500, message = "Description must not exceed 500 characters")
     private String description;
 
-    private String content;
-
-    private String fileUrl;
+    @Size(max = 500, message = "Display name must not exceed 500 characters")
+    private String displayName;
 
     private String objectName;
 
@@ -25,7 +24,7 @@ public class DocumentCreateRequest {
 
     private String fileType;
 
-    private String thumbnailUrl;
+    private String thumbnailObjectName;
 
     private String language = "vi";
 
@@ -51,20 +50,12 @@ public class DocumentCreateRequest {
         this.description = description;
     }
 
-    public String getContent() {
-        return content;
+    public String getDisplayName() {
+        return displayName;
     }
 
-    public void setContent(String content) {
-        this.content = content;
-    }
-
-    public String getFileUrl() {
-        return fileUrl;
-    }
-
-    public void setFileUrl(String fileUrl) {
-        this.fileUrl = fileUrl;
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
     }
 
     public String getObjectName() {
@@ -99,12 +90,12 @@ public class DocumentCreateRequest {
         this.fileType = fileType;
     }
 
-    public String getThumbnailUrl() {
-        return thumbnailUrl;
+    public String getThumbnailObjectName() {
+        return thumbnailObjectName;
     }
 
-    public void setThumbnailUrl(String thumbnailUrl) {
-        this.thumbnailUrl = thumbnailUrl;
+    public void setThumbnailObjectName(String thumbnailObjectName) {
+        this.thumbnailObjectName = thumbnailObjectName;
     }
 
     public String getLanguage() {

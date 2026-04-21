@@ -4,40 +4,40 @@ import com.studydocs.manager.config.StorageProperties;
 import com.studydocs.manager.dto.common.ErrorResponse;
 import com.studydocs.manager.dto.file.FileDeleteResponse;
 import com.studydocs.manager.dto.file.FileUploadResponse;
+import com.studydocs.manager.exception.BadRequestException;
+import com.studydocs.manager.exception.NotFoundException;
 import com.studydocs.manager.service.file.TikaMetadataService;
 import com.studydocs.manager.storage.StorageProvider;
+import com.studydocs.manager.storage.StoredFile;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.io.InputStream;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
-/**
- * FileUploadController - Controller xử lý upload file lên MinIO
- * 
- * Giải thích chi tiết từng phần:
- * 1. ENDPOINTS: /api/files/upload (documents), /api/files/upload-thumbnail
- * (images)
- * 2. AUTHENTICATION: Yêu cầu JWT token với role USER hoặc ADMIN
- * 3. VALIDATION: Kiểm tra file size, MIME type trước khi upload
- * 4. STORAGE: Upload lên MinIO Server, trả về URL để truy cập
- */
 @RestController
 @RequestMapping("/api/files")
 @Tag(name = "File Upload", description = "APIs for uploading files to MinIO")
@@ -46,7 +46,6 @@ public class FileUploadController {
 
     private static final Logger logger = LoggerFactory.getLogger(FileUploadController.class);
 
-    // Các loại file tài liệu được phép
     private static final List<String> ALLOWED_DOCUMENT_TYPES = Arrays.asList(
             "application/pdf",
             "application/msword",
@@ -57,7 +56,6 @@ public class FileUploadController {
             "application/vnd.openxmlformats-officedocument.presentationml.presentation",
             "text/plain");
 
-    // Các loại file ảnh được phép
     private static final List<String> ALLOWED_IMAGE_TYPES = Arrays.asList(
             "image/jpeg",
             "image/jpg",
@@ -65,295 +63,252 @@ public class FileUploadController {
             "image/gif",
             "image/webp");
 
-    // 50MB limit
+    private static final List<String> ALLOWED_IMAGE_EXTENSIONS = Arrays.asList(
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".webp");
+
     private static final long MAX_FILE_SIZE = 50 * 1024 * 1024;
 
-    @Autowired
-    private StorageProvider storageProvider;
+    private final StorageProvider storageProvider;
+    private final StorageProperties storageProperties;
+    private final TikaMetadataService tikaMetadataService;
 
-    @Autowired
-    private StorageProperties storageProperties;
+    public FileUploadController(
+            StorageProvider storageProvider,
+            StorageProperties storageProperties,
+            TikaMetadataService tikaMetadataService) {
+        this.storageProvider = storageProvider;
+        this.storageProperties = storageProperties;
+        this.tikaMetadataService = tikaMetadataService;
+    }
 
-    @Autowired
-    private TikaMetadataService tikaMetadataService;
-
-    /**
-     * Upload tài liệu (PDF, Word, Excel, PPT, etc.)
-     *
-     * Flow: Client gửi 1 file → Validate → Upload MinIO → Extract metadata
-     * → Trả URL + metadata để auto-fill form tạo document
-     *
-     * Two-step upload pattern:
-     * Step 1: Upload file and get metadata (this endpoint)
-     * Step 2: Frontend uses metadata to pre-fill form, user reviews, then calls
-     * POST /documents
-     */
     @PostMapping(value = "/upload", consumes = "multipart/form-data")
     @Operation(summary = "Upload a document file", description = "Upload a single document file to MinIO storage. Optionally extracts metadata (title, page count, etc.) to pre-fill the document creation form.")
     @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
-    public ResponseEntity<?> uploadDocument(
+    public ResponseEntity<FileUploadResponse> uploadDocument(
             @Parameter(description = "Document file to upload", required = true) @RequestPart("file") MultipartFile file,
-            @Parameter(description = "Extract metadata from file using Apache Tika (default: true)") @RequestParam(value = "extractMetadata", defaultValue = "true") boolean extractMetadata) {
+            @Parameter(description = "Extract metadata from file using Apache Tika (default: true)") @RequestParam(value = "extractMetadata", defaultValue = "true") boolean extractMetadata)
+            throws IOException {
 
         String originalFileName = file.getOriginalFilename();
-        try {
-            // Step 1: Validate file
-            validateFile(file, ALLOWED_DOCUMENT_TYPES);
-            logger.info("Uploading document: {}, size: {}, extractMetadata: {}", originalFileName, file.getSize(),
-                    extractMetadata);
+        validateFile(file, ALLOWED_DOCUMENT_TYPES);
+        logger.info("Uploading document: {}, size: {}, extractMetadata: {}", originalFileName, file.getSize(),
+                extractMetadata);
 
-            // Step 2: Extract metadata if requested
-            com.studydocs.manager.dto.file.FileMetadataSummary metadata = null;
-            if (extractMetadata) {
-                try {
-                    metadata = tikaMetadataService.extractMetadataSummary(file);
-                    logger.debug("Metadata extracted - Title: {}, Pages: {}", metadata.getTitle(),
-                            metadata.getPageCount());
-                } catch (Exception e) {
-                    // Don't fail upload if metadata extraction fails
-                    logger.warn("Failed to extract metadata from {}: {} (Type: {})",
-                            originalFileName, e.getMessage(), e.getClass().getSimpleName());
-                }
+        com.studydocs.manager.dto.file.FileMetadataSummary metadata = null;
+        if (extractMetadata) {
+            try {
+                metadata = tikaMetadataService.extractMetadataSummary(file);
+                logger.debug("Metadata extracted - Title: {}, Pages: {}", metadata.getTitle(), metadata.getPageCount());
+            } catch (Exception e) {
+                logger.warn("Failed to extract metadata from {}: {} (Type: {})",
+                        originalFileName, e.getMessage(), e.getClass().getSimpleName());
             }
-
-            // Step 3: Upload file to storage
-            String fileUrl = storageProvider.uploadFile(file, storageProperties.getDocumentsFolder());
-
-            // Step 4: Build response
-            FileUploadResponse response = new FileUploadResponse();
-            response.setFileUrl(fileUrl);
-            response.setFileName(originalFileName);
-            response.setFileSize(file.getSize());
-            response.setFileType(file.getContentType());
-
-            String objectName = extractCleanObjectName(fileUrl, storageProperties.getDocumentsFolder());
-            response.setObjectName(objectName);
-            response.setMetadata(metadata);
-
-            logger.info("Document upload SUCCESS: {}", originalFileName);
-            return ResponseEntity.ok(response);
-
-        } catch (Exception e) {
-            logger.error("Document upload FAILED: {} - Error: {}", originalFileName, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Upload failed: " + e.getMessage());
         }
+
+        StoredFile storedFile = storageProvider.uploadFile(file, storageProperties.getDocumentsFolder());
+
+        FileUploadResponse response = new FileUploadResponse();
+        response.setFileUrl(storedFile.fileUrl());
+        response.setFileName(originalFileName);
+        response.setFileSize(file.getSize());
+        response.setFileType(file.getContentType());
+        response.setObjectName(storedFile.objectName());
+        response.setMetadata(metadata);
+
+        logger.info("Document upload SUCCESS: {}", originalFileName);
+        return ResponseEntity.ok(response);
     }
 
-    /**
-     * Upload single thumbnail image (PNG, JPG, GIF, WebP)
-     * 
-     * Flow: Client uploads 1 thumbnail → Validate → Upload storage → Return URL
-     * 
-     * Note: Single upload prevents confusion with document-thumbnail mapping.
-     * Frontend uploads 1 thumbnail per document form.
-     * 
-     * @param file Thumbnail image file
-     * @return FileUploadResponse with file URL and metadata
-     */
     @PostMapping(value = "/upload-thumbnail", consumes = "multipart/form-data")
     @Operation(summary = "Upload thumbnail image", description = "Upload a single thumbnail image to storage. Returns file URL and metadata if successful.")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
-    public ResponseEntity<?> uploadThumbnail(
-            @Parameter(description = "Thumbnail image file to upload", required = true) @RequestPart("file") MultipartFile file) {
+    public ResponseEntity<FileUploadResponse> uploadThumbnail(
+            @Parameter(description = "Thumbnail image file to upload", required = true) @RequestPart("file") MultipartFile file)
+            throws IOException {
 
-        try {
-            String originalFileName = file.getOriginalFilename();
-            logger.info("Thumbnail upload started: {}, size: {}", originalFileName, file.getSize());
+        String originalFileName = file.getOriginalFilename();
+        logger.info("Thumbnail upload started: {}, size: {}", originalFileName, file.getSize());
+        validateFile(file, ALLOWED_IMAGE_TYPES);
 
-            // Step 1: Validate file
-            validateFile(file, ALLOWED_IMAGE_TYPES);
+        StoredFile storedFile = storageProvider.uploadFile(file, storageProperties.getThumbnailsFolder());
 
-            // Step 2: Upload thumbnail to storage
-            String fileUrl = storageProvider.uploadFile(file, storageProperties.getThumbnailsFolder());
+        FileUploadResponse response = new FileUploadResponse();
+        response.setFileUrl(storedFile.fileUrl());
+        response.setFileName(originalFileName);
+        response.setFileSize(file.getSize());
+        response.setFileType(file.getContentType());
+        response.setObjectName(storedFile.objectName());
 
-            // Step 3: Build response
-            FileUploadResponse response = new FileUploadResponse();
-            response.setFileUrl(fileUrl);
-            response.setFileName(originalFileName);
-            response.setFileSize(file.getSize());
-            response.setFileType(file.getContentType());
-
-            // Extract objectName from fileUrl (without query parameters)
-            String objectName = extractCleanObjectName(fileUrl, storageProperties.getThumbnailsFolder());
-            response.setObjectName(objectName);
-
-            logger.info("Thumbnail upload SUCCESS: {}", originalFileName);
-
-            return ResponseEntity.ok(response);
-
-        } catch (Exception e) {
-            logger.error("Thumbnail upload FAILED: {} - Error: {}", file.getOriginalFilename(), e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Upload failed: " + e.getMessage());
-        }
+        logger.info("Thumbnail upload SUCCESS: {}", originalFileName);
+        return ResponseEntity.ok(response);
     }
 
-    /**
-     * Download file từ storage
-     * 
-     * Flow: Client gửi objectName → Validate → Download từ storage → Trả về file
-     * 
-     * @param objectName Object name của file cần download
-     * @return File content với headers phù hợp
-     */
     @GetMapping("/download")
     @Operation(summary = "Download file from storage", description = "Download a file from storage by providing the object name . Returns the file content with appropriate headers or error message.")
     @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
     public ResponseEntity<?> downloadFile(
-            @Parameter(description = "Object name of the file to download", required = true) @RequestParam("objectName") String objectName) {
+            @Parameter(description = "Object name of the file to download", required = true) @RequestParam("objectName") String objectName)
+            throws IOException {
 
-        try {
-            logger.info("Downloading file: {}", objectName);
+        logger.info("Downloading file: {}", objectName);
 
-            // Step 1: Validate objectName
-            if (objectName == null || objectName.trim().isEmpty()) {
-                ErrorResponse error = new ErrorResponse(
-                        400,
-                        "Bad Request",
-                        "Object name is required");
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .body(error);
-            }
-            // Normalize + decode objectName
-            objectName = URLDecoder.decode(objectName, StandardCharsets.UTF_8);
-            // Remove leading slash nếu có
-            objectName = objectName.replaceFirst("^/", "");
-            // Step 2: Check if file exists
-            if (!storageProvider.fileExists(objectName)) {
-                logger.warn("File not found: {}", objectName);
-                ErrorResponse error = new ErrorResponse(
-                        404,
-                        "Not Found",
-                        "File not found: " + objectName);
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .body(error);
-            }
-
-            // Step 3: Download file as stream
-            InputStream fileStream = storageProvider.downloadFileAsStream(objectName);
-            Resource resource = new InputStreamResource(fileStream);
-
-            // Step 4: Extract filename for Content-Disposition header
-            String filename = objectName;
-            if (objectName.contains("/")) {
-                filename = objectName.substring(objectName.lastIndexOf("/") + 1);
-            }
-            // Remove UUID prefix if exists (format: uuid_originalname.ext)
-            if (filename.contains("_")) {
-                int firstUnderscore = filename.indexOf("_");
-                filename = filename.substring(firstUnderscore + 1);
-            }
-
-            // Step 5: Build response with headers
-            HttpHeaders headers = new HttpHeaders();
-            headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"");
-
-            logger.info("File download SUCCESS: {}", objectName);
-
-            return ResponseEntity.ok()
-                    .headers(headers)
-                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                    .body(resource);
-
-        } catch (Exception e) {
-            logger.error("File download FAILED: {} - Error: {}", objectName, e.getMessage(), e);
-            ErrorResponse error = new ErrorResponse(
-                    500,
-                    "Internal Server Error",
-                    "Failed to download file: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+        if (objectName == null || objectName.trim().isEmpty()) {
+            ErrorResponse error = new ErrorResponse(400, "Bad Request", "Object name is required");
+            return ResponseEntity.badRequest()
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(error);
         }
+
+        String normalizedObjectName = URLDecoder.decode(objectName, StandardCharsets.UTF_8).replaceFirst("^/", "");
+        if (!storageProvider.fileExists(normalizedObjectName)) {
+            logger.warn("File not found: {}", normalizedObjectName);
+            throw new NotFoundException("File not found: " + normalizedObjectName, "FILE_NOT_FOUND", "objectName");
+        }
+
+        InputStream fileStream = storageProvider.downloadFileAsStream(normalizedObjectName);
+        Resource resource = new InputStreamResource(fileStream);
+        String filename = extractFilename(normalizedObjectName);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"");
+
+        logger.info("File download SUCCESS: {}", normalizedObjectName);
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .body(resource);
     }
 
-    /**
-     * Xóa file từ storage
-     * 
-     * Flow: Client gửi objectName → Validate → Xóa từ storage → Trả về confirmation
-     * 
-     * @param objectName Object name  của file cần xóa
-     * @return FileDeleteResponse với thông tin về file đã xóa
-     */
     @DeleteMapping("/delete")
     @Operation(summary = "Delete file from storage", description = "Delete a file from storage by providing the object name. Returns confirmation of deletion.")
     @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
-    public ResponseEntity<?> deleteFile(
-            @Parameter(description = "Object name of the file to delete", required = true) @RequestParam("objectName") String objectName) {
+    public ResponseEntity<FileDeleteResponse> deleteFile(
+            @Parameter(description = "Object name of the file to delete", required = true) @RequestParam("objectName") String objectName)
+            throws IOException {
 
-        try {
-            logger.info("Deleting file: {}", objectName);
+        logger.info("Deleting file: {}", objectName);
 
-            // Step 1: Check if file exists
-            if (!storageProvider.fileExists(objectName)) {
-                logger.warn("File not found for deletion: {}", objectName);
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(new FileDeleteResponse(false, "File not found: " + objectName, null));
-            }
-
-            // Step 2: Delete file
-            storageProvider.deleteFile(objectName);
-
-            // Step 3: Build success response
-            FileDeleteResponse response = new FileDeleteResponse(
-                    true,
-                    "File deleted successfully",
-                    objectName);
-
-            logger.info("File deletion SUCCESS: {}", objectName);
-
-            return ResponseEntity.ok(response);
-
-        } catch (Exception e) {
-            logger.error("File deletion FAILED: {} - Error: {}", objectName, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new FileDeleteResponse(false, "Failed to delete file: " + e.getMessage(), objectName));
-        }
-    }
-
-    /**
-     * Extract clean object name from presigned URL
-     * 
-     * Removes query parameters (?X-Amz-...) from presigned URLs to get clean object
-     * name
-     * 
-     * @param fileUrl Full presigned URL or simple URL
-     * @param folder  Folder prefix (e.g., "documents/", "thumbnails/")
-     * @return Clean object name without query parameters
-     */
-    private String extractCleanObjectName(String fileUrl, String folder) {
-        // Extract filename from URL (part after last /)
-        String filename = fileUrl.substring(fileUrl.lastIndexOf("/") + 1);
-
-        // Remove query parameters if present (presigned URLs have ?X-Amz-...)
-        if (filename.contains("?")) {
-            filename = filename.substring(0, filename.indexOf("?"));
+        if (!storageProvider.fileExists(objectName)) {
+            logger.warn("File not found for deletion: {}", objectName);
+            throw new NotFoundException("File not found: " + objectName, "FILE_NOT_FOUND", "objectName");
         }
 
-        return folder + filename;
+        storageProvider.deleteFile(objectName);
+        FileDeleteResponse response = new FileDeleteResponse(true, "File deleted successfully", objectName);
+        logger.info("File deletion SUCCESS: {}", objectName);
+        return ResponseEntity.ok(response);
     }
 
-    /**
-     * Validate file trước khi upload
-     * 
-     * Kiểm tra: File rỗng, MIME type, Kích thước
-     */
+    private String extractFilename(String objectName) {
+        String filename = objectName;
+        if (objectName.contains("/")) {
+            filename = objectName.substring(objectName.lastIndexOf("/") + 1);
+        }
+        if (filename.contains("_")) {
+            int firstUnderscore = filename.indexOf("_");
+            filename = filename.substring(firstUnderscore + 1);
+        }
+        return filename;
+    }
+
     private void validateFile(MultipartFile file, List<String> allowedTypes) {
         if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("File cannot be empty");
+            throw new BadRequestException("File cannot be empty", "FILE_EMPTY", "file");
         }
 
         String contentType = file.getContentType();
         if (contentType == null || !allowedTypes.contains(contentType.toLowerCase())) {
-            throw new IllegalArgumentException("Invalid file type. Allowed types: " + allowedTypes);
+            throw new BadRequestException("Invalid file type. Allowed types: " + allowedTypes, "INVALID_FILE_TYPE", "file");
         }
 
         if (file.getSize() > MAX_FILE_SIZE) {
-            throw new IllegalArgumentException("File size exceeds maximum allowed size of 50MB");
+            throw new BadRequestException("File size exceeds maximum allowed size of 50MB", "FILE_SIZE_EXCEEDED", "file");
         }
+
+        if (allowedTypes == ALLOWED_IMAGE_TYPES) {
+            validateImageContent(file);
+        }
+    }
+
+    private void validateImageContent(MultipartFile file) {
+        String originalFileName = file.getOriginalFilename();
+        String normalizedFileName = originalFileName == null ? "" : originalFileName.toLowerCase(Locale.ROOT);
+        boolean validExtension = ALLOWED_IMAGE_EXTENSIONS.stream().anyMatch(normalizedFileName::endsWith);
+        if (!validExtension) {
+            throw new BadRequestException(
+                    "Invalid image extension. Allowed extensions: " + ALLOWED_IMAGE_EXTENSIONS,
+                    "INVALID_IMAGE_EXTENSION",
+                    "file");
+        }
+
+        try {
+            byte[] bytes = file.getBytes();
+            if (bytes.length == 0) {
+                throw new BadRequestException("File cannot be empty", "FILE_EMPTY", "file");
+            }
+
+            if (!isSupportedImage(bytes)) {
+                throw new BadRequestException(
+                        "Uploaded file is not a valid image",
+                        "INVALID_IMAGE_CONTENT",
+                        "file");
+            }
+        } catch (IOException e) {
+            throw new BadRequestException(
+                    "Could not read uploaded image",
+                    "INVALID_IMAGE_CONTENT",
+                    "file");
+        }
+    }
+
+    private boolean isSupportedImage(byte[] bytes) {
+        return isJpeg(bytes) || isPng(bytes) || isGif(bytes) || isWebp(bytes);
+    }
+
+    private boolean isJpeg(byte[] bytes) {
+        return bytes.length >= 3
+                && (bytes[0] & 0xFF) == 0xFF
+                && (bytes[1] & 0xFF) == 0xD8
+                && (bytes[2] & 0xFF) == 0xFF;
+    }
+
+    private boolean isPng(byte[] bytes) {
+        return bytes.length >= 8
+                && (bytes[0] & 0xFF) == 0x89
+                && bytes[1] == 0x50
+                && bytes[2] == 0x4E
+                && bytes[3] == 0x47
+                && bytes[4] == 0x0D
+                && bytes[5] == 0x0A
+                && bytes[6] == 0x1A
+                && bytes[7] == 0x0A;
+    }
+
+    private boolean isGif(byte[] bytes) {
+        return bytes.length >= 6
+                && bytes[0] == 0x47
+                && bytes[1] == 0x49
+                && bytes[2] == 0x46
+                && bytes[3] == 0x38
+                && (bytes[4] == 0x37 || bytes[4] == 0x39)
+                && bytes[5] == 0x61;
+    }
+
+    private boolean isWebp(byte[] bytes) {
+        return bytes.length >= 12
+                && bytes[0] == 0x52
+                && bytes[1] == 0x49
+                && bytes[2] == 0x46
+                && bytes[3] == 0x46
+                && bytes[8] == 0x57
+                && bytes[9] == 0x45
+                && bytes[10] == 0x42
+                && bytes[11] == 0x50;
     }
 }

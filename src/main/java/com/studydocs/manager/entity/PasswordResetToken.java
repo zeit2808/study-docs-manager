@@ -3,8 +3,12 @@ package com.studydocs.manager.entity;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
+
 @Entity
-@Table(name = "password_reset_tokens")
+@Table(name = "password_reset_tokens", indexes = {
+        @Index(name = "idx_prt_user_used", columnList = "user_id, used"),
+        @Index(name = "idx_prt_expiry_time", columnList = "expiry_time")
+})
 public class PasswordResetToken {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -14,13 +18,13 @@ public class PasswordResetToken {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(nullable = false,length = 20)
+    @Column(nullable = false, length = 20)
     private String otp;
 
-    @Column(name = "exppiry_time", nullable = false)
+    @Column(name = "expiry_time", nullable = false)
     private LocalDateTime expiredAt;
 
-    @Column(name ="used", nullable = false)
+    @Column(name = "used", nullable = false)
     private Boolean used = false;
 
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -29,15 +33,15 @@ public class PasswordResetToken {
     public PasswordResetToken() {
     }
 
-    public PasswordResetToken(User user,String otp, LocalDateTime expiredAt) {
+    public PasswordResetToken(User user, String otp, LocalDateTime expiredAt) {
         this.otp = otp;
         this.user = user;
         this.expiredAt = expiredAt;
     }
 
     @PrePersist
-    protected void onCreate(){
-        if (createdAt == null){
+    protected void onCreate() {
+        if (createdAt == null) {
             createdAt = LocalDateTime.now();
         }
     }

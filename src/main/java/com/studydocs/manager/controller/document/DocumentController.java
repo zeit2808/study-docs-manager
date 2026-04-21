@@ -1,54 +1,58 @@
 package com.studydocs.manager.controller.document;
 
+import com.studydocs.manager.application.document.DocumentApplicationService;
+import com.studydocs.manager.dto.common.SuccessResponse;
 import com.studydocs.manager.dto.document.DocumentCreateRequest;
 import com.studydocs.manager.dto.document.DocumentResponse;
 import com.studydocs.manager.dto.document.DocumentUpdateRequest;
-import com.studydocs.manager.service.document.DocumentService;
+import com.studydocs.manager.exception.NotFoundException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/documents")
 @Tag(name = "Documents", description = "APIs for managing documents")
 @SecurityRequirement(name = "bearerAuth")
-
 public class DocumentController {
-    @Autowired
-    private DocumentService documentService;
+    private final DocumentApplicationService documentApplicationService;
+
+    public DocumentController(DocumentApplicationService documentApplicationService) {
+        this.documentApplicationService = documentApplicationService;
+    }
 
     @PostMapping
     @Operation(summary = "Create document", description = "Create a new document")
     @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
     public ResponseEntity<DocumentResponse> createDocument(@Valid @RequestBody DocumentCreateRequest request) {
-        try {
-            DocumentResponse response = documentService.createDocument(request);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        }
+        DocumentResponse response = documentApplicationService.createDocument(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Get document by ID", description = "Get document details by ID")
     @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
     public ResponseEntity<DocumentResponse> getDocumentById(@PathVariable Long id) {
-        try {
-            DocumentResponse response = documentService.getDocumentById(id);
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        }
+        DocumentResponse response = documentApplicationService.getDocumentById(id);
+        return ResponseEntity.ok(response);
     }
 
     @PutMapping("/{id}")
@@ -57,36 +61,24 @@ public class DocumentController {
     public ResponseEntity<DocumentResponse> updateDocument(
             @PathVariable Long id,
             @Valid @RequestBody DocumentUpdateRequest request) {
-        try {
-            DocumentResponse response = documentService.updateDocument(id, request);
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        }
+        DocumentResponse response = documentApplicationService.updateDocument(id, request);
+        return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete document", description = "Soft delete a document")
     @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
     public ResponseEntity<Void> deleteDocument(@PathVariable Long id) {
-        try {
-            documentService.deleteDocument(id);
-            return ResponseEntity.noContent().build();
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        }
+        documentApplicationService.deleteDocument(id);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{id}/restore")
     @Operation(summary = "Restore document", description = "Restore a deleted document")
     @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
-    public ResponseEntity<DocumentResponse> restoreDocument(@PathVariable Long id) {
-        try {
-            DocumentResponse response = documentService.restoreDocument(id);
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        }
+    public ResponseEntity<SuccessResponse> restoreDocument(@PathVariable Long id) {
+        documentApplicationService.restoreDocument(id);
+        return ResponseEntity.ok(new SuccessResponse(true, "Document restored successfully."));
     }
 
     @GetMapping("/my")
@@ -103,7 +95,7 @@ public class DocumentController {
         Sort sort = sortDir.equalsIgnoreCase("ASC") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        Page<DocumentResponse> documents = documentService.getMyDocuments(status, folderId, pageable);
+        Page<DocumentResponse> documents = documentApplicationService.getMyDocuments(status, folderId, pageable);
         return ResponseEntity.ok(documents);
     }
 
@@ -120,51 +112,24 @@ public class DocumentController {
         Sort sort = sortDir.equalsIgnoreCase("ASC") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        Page<DocumentResponse> documents = documentService.getPublicDocuments(status, pageable);
-        return ResponseEntity.ok(documents);
-    }
-
-    @GetMapping("/search")
-    @Operation(summary = "Search documents", description = "Search documents by keyword")
-    @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
-    public ResponseEntity<Page<DocumentResponse>> searchDocuments(
-            @RequestParam String q,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-
-        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        Page<DocumentResponse> documents = documentService.searchDocuments(q, pageable);
+        Page<DocumentResponse> documents = documentApplicationService.getPublicDocuments(status, pageable);
         return ResponseEntity.ok(documents);
     }
 
     @GetMapping("/{id}/download")
     @Operation(summary = "Download document file", description = "Download the file associated with a document")
     @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
-    public ResponseEntity<?> downloadDocument(@PathVariable Long id) {
-        try {
-            DocumentResponse document = documentService.getDocumentById(id);
+    public ResponseEntity<Void> downloadDocument(@PathVariable Long id) {
+        DocumentResponse document = documentApplicationService.getDocumentById(id);
 
-            if (document.getObjectName() == null || document.getObjectName().isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body("Document file not found");
-            }
-
-            // TODO: Increment download count and log download event
-            // This should be added to DocumentService later
-
-            // Redirect to file download endpoint
-            return ResponseEntity.status(HttpStatus.FOUND)
-                    .header("Location", "/api/files/download?objectName=" + document.getObjectName())
-                    .build();
-
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body("Document not found");
+        if (document.getObjectName() == null || document.getObjectName().isEmpty()) {
+            throw new NotFoundException("Document file not found", "DOCUMENT_FILE_NOT_FOUND", "objectName");
         }
+
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .header(HttpHeaders.LOCATION, "/api/files/download?objectName=" + document.getObjectName())
+                .build();
     }
-    // =========================================================================
-    // TRASH MANAGEMENT ENDPOINTS
-    // =========================================================================
 
     @GetMapping("/trash")
     @Operation(summary = "Get my trash", description = "Get paginated list of soft-deleted documents (Trash)")
@@ -177,27 +142,22 @@ public class DocumentController {
 
         Sort sort = sortDir.equalsIgnoreCase("ASC") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
-        return ResponseEntity.ok(documentService.getMyTrash(pageable));
+        return ResponseEntity.ok(documentApplicationService.getMyTrash(pageable));
     }
 
     @DeleteMapping("/trash/{id}")
     @Operation(summary = "Permanently delete document", description = "Hard-delete a single document from trash. File will be cleaned by background job.")
     @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
     public ResponseEntity<Void> permanentDeleteDocument(@PathVariable Long id) {
-        try {
-            documentService.permanentDeleteDocument(id);
-            return ResponseEntity.noContent().build();
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        }
+        documentApplicationService.permanentDeleteDocument(id);
+        return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/trash")
     @Operation(summary = "Empty trash", description = "Hard-delete all documents in trash for the current user.")
     @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
     public ResponseEntity<Void> emptyTrash() {
-        documentService.emptyTrash();
+        documentApplicationService.emptyTrash();
         return ResponseEntity.noContent().build();
     }
-
 }

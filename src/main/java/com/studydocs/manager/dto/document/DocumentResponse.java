@@ -18,6 +18,7 @@ public class DocumentResponse {
     private String username;
     private String title;
     private String description;
+    private String displayName;
     private String content;
     @JsonIgnore // Technical - presigned URL quá dài, chỉ dùng khi download
     private String fileUrl;
@@ -32,8 +33,6 @@ public class DocumentResponse {
     private String status;
     private String visibility;
     private Boolean isFeatured;
-    private Integer viewCount;
-    private Integer downloadCount;
     private Integer favoriteCount;
     private BigDecimal ratingAverage;
     private Integer ratingCount;
@@ -47,6 +46,8 @@ public class DocumentResponse {
     private String folderName;
 
     private String language;
+    private String reason;
+    private String message;
 
     private Set<String> subjects;
     private Set<String> tags;
@@ -99,6 +100,14 @@ public class DocumentResponse {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
     }
 
     public String getContent() {
@@ -181,22 +190,6 @@ public class DocumentResponse {
         this.isFeatured = isFeatured;
     }
 
-    public Integer getViewCount() {
-        return viewCount;
-    }
-
-    public void setViewCount(Integer viewCount) {
-        this.viewCount = viewCount;
-    }
-
-    public Integer getDownloadCount() {
-        return downloadCount;
-    }
-
-    public void setDownloadCount(Integer downloadCount) {
-        this.downloadCount = downloadCount;
-    }
-
     public Integer getFavoriteCount() {
         return favoriteCount;
     }
@@ -259,6 +252,22 @@ public class DocumentResponse {
 
     public void setLanguage(String language) {
         this.language = language;
+    }
+
+    public String getReason() {
+        return reason;
+    }
+
+    public void setReason(String reason) {
+        this.reason = reason;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
     }
 
     public Set<String> getSubjects() {

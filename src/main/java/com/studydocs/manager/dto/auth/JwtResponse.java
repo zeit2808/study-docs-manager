@@ -1,20 +1,24 @@
 package com.studydocs.manager.dto.auth;
+
 import java.util.Set;
+
 public class JwtResponse {
     private String token;
     private String type = "Bearer";
     private Long id;
     private String username;
     private String email;
-    private Set<String> roles;
+    private String role; // single role string, e.g. "USER" or "ADMIN"
+
     public JwtResponse() {
     }
-    public JwtResponse(String token, Long id, String username, String email, Set<String> roles) {
+
+    public JwtResponse(String token, Long id, String username, String email, String role) {
         this.token = token;
         this.id = id;
         this.username = username;
         this.email = email;
-        this.roles = roles;
+        this.role = role;
     }
 
     public String getToken() {
@@ -57,11 +61,11 @@ public class JwtResponse {
         this.email = email;
     }
 
-    public Set<String> getRoles() {
-        return roles;
+    public String getRole() {
+        return role;
     }
 
-    public void setRoles(Set<String> roles) {
-        this.roles = roles;
+    public void setRole(String role) {
+        this.role = role;
     }
 }

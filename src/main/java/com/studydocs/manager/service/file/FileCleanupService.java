@@ -1,12 +1,14 @@
 package com.studydocs.manager.service.file;
+import com.studydocs.manager.enums.*;
 
 import com.studydocs.manager.entity.Document;
+import com.studydocs.manager.entity.DocumentAsset;
+import com.studydocs.manager.repository.DocumentAssetRepository;
 import com.studydocs.manager.repository.DocumentRepository;
 import com.studydocs.manager.storage.StorageProvider;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -36,17 +38,24 @@ public class FileCleanupService {
 
     private static final Logger logger = LoggerFactory.getLogger(FileCleanupService.class);
 
-    @Autowired
-    private DocumentRepository documentRepository;
+    private final DocumentRepository documentRepository;
+    private final DocumentAssetRepository documentAssetRepository;
+    private final StorageProvider storageProvider;
+    private final boolean cleanupEnabled;
+    private final int retentionDays;
 
-    @Autowired
-    private StorageProvider storageProvider;
-
-    @Value("${cleanup.deleted-files.enabled:true}")
-    private boolean cleanupEnabled;
-
-    @Value("${cleanup.deleted-files.retention-days:30}")
-    private int retentionDays;
+    public FileCleanupService(
+            DocumentRepository documentRepository,
+            DocumentAssetRepository documentAssetRepository,
+            StorageProvider storageProvider,
+            @Value("${cleanup.deleted-files.enabled:true}") boolean cleanupEnabled,
+            @Value("${cleanup.deleted-files.retention-days:30}") int retentionDays) {
+        this.documentRepository = documentRepository;
+        this.documentAssetRepository = documentAssetRepository;
+        this.storageProvider = storageProvider;
+        this.cleanupEnabled = cleanupEnabled;
+        this.retentionDays = retentionDays;
+    }
 
     /**
      * Scheduled cleanup job - Runs according to cron expression
@@ -79,8 +88,8 @@ public class FileCleanupService {
 
         do {
             page = documentRepository
-                    .findByStatusAndDeletedAtBeforeAndObjectNameIsNotNull(
-                            Document.DocumentStatus.DELETED, cutoffDate, pageable);
+                    .findByStatusAndDeletedAtBeforeAndAssetObjectNameIsNotNull(
+                            DocumentStatus.DELETED, cutoffDate, pageable);
 
             if (page.isEmpty())
                 break;
@@ -89,7 +98,8 @@ public class FileCleanupService {
 
             for (Document document : page.getContent()) {
                 try {
-                    String objectName = document.getObjectName();
+                    DocumentAsset asset = documentAssetRepository.findByDocumentId(document.getId()).orElse(null);
+                    String objectName = asset != null ? asset.getObjectName() : null;
                     if (objectName == null || objectName.isEmpty())
                         continue;
 
@@ -98,12 +108,11 @@ public class FileCleanupService {
                     // Bước 1: Xóa file vật lý khỏi MinIO
                     storageProvider.deleteFile(objectName);
 
-                    // Bước 2: Null objectName/fileUrl để không cleanup lại lần sau
+                    // Bước 2: Null objectName để không cleanup lại lần sau
                     // GIỮ NGUYÊN record DB với status=DELETED → user có thể restore metadata
                     // (File đã mất nhưng title, description, tags... vẫn còn trong Trash)
-                    document.setObjectName(null);
-                    document.setFileUrl(null);
-                    documentRepository.save(document);
+                    asset.setObjectName(null);
+                    documentAssetRepository.save(asset);
 
                     totalSuccess++;
                     logger.info("Cleaned up file for document ID: {} (file: {})", document.getId(), objectName);
@@ -136,19 +145,19 @@ public class FileCleanupService {
 
         LocalDateTime cutoffDate = LocalDateTime.now().minusDays(retentionDays);
         List<Document> documentsToCleanup = documentRepository
-                .findByDeletedAtBeforeAndObjectNameIsNotNull(cutoffDate);
+                .findByDeletedAtBeforeAndAssetObjectNameIsNotNull(cutoffDate);
 
         int successCount = 0;
         int errorCount = 0;
 
         for (Document document : documentsToCleanup) {
             try {
-                if (document.getObjectName() != null && !document.getObjectName().isEmpty()) {
-                    storageProvider.deleteFile(document.getObjectName());
+                DocumentAsset asset = documentAssetRepository.findByDocumentId(document.getId()).orElse(null);
+                if (asset != null && asset.getObjectName() != null && !asset.getObjectName().isEmpty()) {
+                    storageProvider.deleteFile(asset.getObjectName());
                     // Giữ record, chỉ null file reference
-                    document.setObjectName(null);
-                    document.setFileUrl(null);
-                    documentRepository.save(document);
+                    asset.setObjectName(null);
+                    documentAssetRepository.save(asset);
                     successCount++;
                 }
             } catch (Exception e) {

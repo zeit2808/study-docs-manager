@@ -1,11 +1,11 @@
 package com.studydocs.manager.service.file;
+import com.studydocs.manager.enums.*;
 
 import com.studydocs.manager.entity.Document;
 import com.studydocs.manager.repository.DocumentRepository;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -32,14 +32,18 @@ public class TrashCleanupService {
 
     private static final Logger logger = LoggerFactory.getLogger(TrashCleanupService.class);
 
-    @Autowired
-    private DocumentRepository documentRepository;
+    private final DocumentRepository documentRepository;
+    private final boolean trashCleanupEnabled;
+    private final int trashRetentionDays;
 
-    @Value("${cleanup.trash.enabled:true}")
-    private boolean trashCleanupEnabled;
-
-    @Value("${cleanup.trash.retention-days:90}")
-    private int trashRetentionDays;
+    public TrashCleanupService(
+            DocumentRepository documentRepository,
+            @Value("${cleanup.trash.enabled:true}") boolean trashCleanupEnabled,
+            @Value("${cleanup.trash.retention-days:90}") int trashRetentionDays) {
+        this.documentRepository = documentRepository;
+        this.trashCleanupEnabled = trashCleanupEnabled;
+        this.trashRetentionDays = trashRetentionDays;
+    }
 
     /**
      * Chạy lúc 3:00 AM mỗi ngày (1 tiếng sau FileCleanupService).
@@ -69,8 +73,8 @@ public class TrashCleanupService {
         do {
             // Chỉ hard-delete records ĐÃ được FileCleanupService dọn file (objectName=null)
             // Tránh trường hợp hard-delete record nhưng file vẫn còn trên MinIO → file rác
-            page = documentRepository.findByStatusAndDeletedAtBeforeAndObjectNameIsNull(
-                    Document.DocumentStatus.DELETED, cutoffDate, pageable);
+            page = documentRepository.findByStatusAndDeletedAtBeforeAndAssetMissingOrObjectNameIsNull(
+                    DocumentStatus.DELETED, cutoffDate, pageable);
 
             if (page.isEmpty())
                 break;

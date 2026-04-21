@@ -1,8 +1,8 @@
 package com.studydocs.manager.controller.user;
 
+import com.studydocs.manager.application.user.UserApplicationService;
 import com.studydocs.manager.dto.user.ProfileUpdateRequest;
 import com.studydocs.manager.dto.user.UserResponse;
-import com.studydocs.manager.service.user.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -19,10 +19,10 @@ import org.springframework.web.multipart.MultipartFile;
 @SecurityRequirement(name = "bearerAuth")
 public class ProfileController {
 
-    private final UserService userService;
+    private final UserApplicationService userApplicationService;
 
-    public ProfileController(UserService userService) {
-        this.userService = userService;
+    public ProfileController(UserApplicationService userApplicationService) {
+        this.userApplicationService = userApplicationService;
     }
 
     @GetMapping
@@ -30,7 +30,7 @@ public class ProfileController {
     @PreAuthorize("hasAnyRole('ADMIN','USER')")
     public ResponseEntity<UserResponse> getCurrentProfile(Authentication authentication) {
         String username = authentication.getName();
-        UserResponse user = userService.getUserByUsername(username);
+        UserResponse user = userApplicationService.getCurrentProfile(username);
         return ResponseEntity.ok(user);
     }
 
@@ -42,17 +42,17 @@ public class ProfileController {
             @Valid @RequestBody ProfileUpdateRequest request) {
 
         String username = authentication.getName();
-        UserResponse updated = userService.updateProfile(username, request);
+        UserResponse updated = userApplicationService.updateCurrentProfile(username, request);
         return ResponseEntity.ok(updated);
     }
-    @PostMapping("/avatar")
+    @PostMapping(value = "/avatar", consumes = "multipart/form-data")
     @Operation(summary = "Upload avatar")
     @PreAuthorize("hasAnyRole('ADMIN','USER')")
     public ResponseEntity<UserResponse> uploadAvatar(
             Authentication authentication,
-            @RequestParam("file") MultipartFile file) {
+            @RequestPart("file") MultipartFile file) {
         String username = authentication.getName();
-        UserResponse updated = userService.updateAvatar(username, file);
+        UserResponse updated = userApplicationService.updateAvatar(username, file);
         return ResponseEntity.ok(updated);
     }
 }

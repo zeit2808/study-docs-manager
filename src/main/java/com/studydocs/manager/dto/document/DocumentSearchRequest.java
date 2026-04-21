@@ -1,9 +1,12 @@
 package com.studydocs.manager.dto.document;
+import com.studydocs.manager.enums.*;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.OptBoolean;
-import com.studydocs.manager.entity.Document.DocumentStatus;
-import com.studydocs.manager.entity.Document.DocumentVisibility;
+import com.studydocs.manager.enums.DocumentStatus;
+import com.studydocs.manager.enums.DocumentVisibility;
+import com.studydocs.manager.enums.SortOption;
+import com.studydocs.manager.enums.SortOrder;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -63,24 +66,8 @@ public class DocumentSearchRequest {
     /**
      * Search options
      */
-    private Boolean fuzzySearch = true;
-    private Boolean highlightResults = true;
-
-    // Enums
-    public enum SortOption {
-        RELEVANCE, // Sort by search score
-        DATE, // Sort by createdAt
-        UPDATED, // Sort by updatedAt
-        RATING, // Sort by ratingAverage
-        VIEWS, // Sort by viewCount
-        DOWNLOADS, // Sort by downloadCount
-        FAVORITES, // Sort by favouriteCount
-        TITLE // Sort by title alphabetically
-    }
-
-    public enum SortOrder {
-        ASC, DESC
-    }
+    private Boolean fuzzySearch;
+    private Boolean highlightResults;
 
     // Getters and Setters
     public String getQuery() {

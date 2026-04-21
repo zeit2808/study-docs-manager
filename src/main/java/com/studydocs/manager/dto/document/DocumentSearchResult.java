@@ -1,7 +1,8 @@
 package com.studydocs.manager.dto.document;
+import com.studydocs.manager.enums.*;
 
-import com.studydocs.manager.entity.Document.DocumentStatus;
-import com.studydocs.manager.entity.Document.DocumentVisibility;
+
+
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -62,8 +63,6 @@ public class DocumentSearchResult {
     /**
      * Statistics
      */
-    private Integer viewCount;
-    private Integer downloadCount;
     private Integer favouriteCount;
     private Double ratingAverage;
     private Integer ratingCount;
@@ -225,22 +224,6 @@ public class DocumentSearchResult {
 
     public void setLanguage(String language) {
         this.language = language;
-    }
-
-    public Integer getViewCount() {
-        return viewCount;
-    }
-
-    public void setViewCount(Integer viewCount) {
-        this.viewCount = viewCount;
-    }
-
-    public Integer getDownloadCount() {
-        return downloadCount;
-    }
-
-    public void setDownloadCount(Integer downloadCount) {
-        this.downloadCount = downloadCount;
     }
 
     public Integer getFavouriteCount() {

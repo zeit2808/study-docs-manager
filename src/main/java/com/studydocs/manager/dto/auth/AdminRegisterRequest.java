@@ -1,14 +1,11 @@
 package com.studydocs.manager.dto.auth;
+import com.studydocs.manager.enums.RoleName;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
-import jakarta.validation.constraints.Pattern;
+
 import com.studydocs.manager.validation.ValidGmail;
 import com.studydocs.manager.validation.ValidPhoneNumber;
-import java.util.Set;
+import jakarta.validation.constraints.*;
 
 public class AdminRegisterRequest {
     @NotBlank(message = "Username must not be blank")
@@ -22,20 +19,21 @@ public class AdminRegisterRequest {
 
     @NotBlank(message = "Password must not be blank")
     @Size(min = 8, max = 64, message = "Password must be between 8 and 64 characters")
-    @Pattern(
-            regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&.,;:_+\\-=^#()\\[\\]{}|<>]).{8,64}$",
-            message = "Password must have upper, lower, digit, special char, no spaces"
-    )
+    @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&.,;:_+\\-=^#()\\[\\]{}|<>]).{8,64}$", message = "Password must have upper, lower, digit, special char, no spaces")
     private String password;
 
     private String fullname;
 
     @JsonProperty("phone")
     @ValidPhoneNumber(message = "Invalid phone number format")
-    private String Phone;
+    private String phone;
 
-    @NotNull(message = "Roles must not be null")
-    private Set<String> roles;
+    /**
+     * Role được gán cho tài khoản mới.
+     * Admin có thể chọn bất kỳ value trong {@link RoleName}.
+     * Mặc định (nếu null): USER.
+     */
+    private RoleName role = RoleName.USER;
 
     private Boolean enabled;
 
@@ -75,19 +73,19 @@ public class AdminRegisterRequest {
     }
 
     public String getPhone() {
-        return Phone;
+        return phone;
     }
 
     public void setPhone(String phone) {
-        Phone = phone;
+        this.phone = phone;
     }
 
-    public Set<String> getRoles() {
-        return roles;
+    public RoleName getRole() {
+        return role;
     }
 
-    public void setRoles(Set<String> roles) {
-        this.roles = roles;
+    public void setRole(RoleName role) {
+        this.role = role != null ? role : RoleName.USER;
     }
 
     public Boolean getEnabled() {
@@ -98,4 +96,3 @@ public class AdminRegisterRequest {
         this.enabled = enabled;
     }
 }
-

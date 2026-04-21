@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "document_versions", indexes = {
         @Index(name = "idx_document_versions_document_id", columnList = "document_id, version_number"),
-        @Index(name = "idx_document_versions_is_current", columnList = "is_current, document_id")
+        @Index(name = "idx_document_versions_created_at", columnList = "document_id, created_at")
 }, uniqueConstraints = {
         @UniqueConstraint(name = "uk_document_version", columnNames = {"document_id", "version_number"})
 })
@@ -30,11 +30,8 @@ public class DocumentVersion {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(columnDefinition = "LONGTEXT")
-    private String content;
-
-    @Column(name = "file_url", length = 1000)
-    private String fileUrl;
+    @Column(name = "object_name", length = 1000)
+    private String objectName;
 
     @Column(name = "file_name", length = 500)
     private String fileName;
@@ -47,9 +44,6 @@ public class DocumentVersion {
 
     @Column(name = "change_summary", columnDefinition = "TEXT")
     private String changeSummary;
-
-    @Column(name = "is_current")
-    private Boolean isCurrent = false;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -79,11 +73,8 @@ public class DocumentVersion {
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
 
-    public String getContent() { return content; }
-    public void setContent(String content) { this.content = content; }
-
-    public String getFileUrl() { return fileUrl; }
-    public void setFileUrl(String fileUrl) { this.fileUrl = fileUrl; }
+    public String getObjectName() { return objectName; }
+    public void setObjectName(String objectName) { this.objectName = objectName; }
 
     public String getFileName() { return fileName; }
     public void setFileName(String fileName) { this.fileName = fileName; }
@@ -96,9 +87,6 @@ public class DocumentVersion {
 
     public String getChangeSummary() { return changeSummary; }
     public void setChangeSummary(String changeSummary) { this.changeSummary = changeSummary; }
-
-    public Boolean getIsCurrent() { return isCurrent; }
-    public void setIsCurrent(Boolean isCurrent) { this.isCurrent = isCurrent; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

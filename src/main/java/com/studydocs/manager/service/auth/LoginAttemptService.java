@@ -1,32 +1,13 @@
 package com.studydocs.manager.service.auth;
 
-import com.studydocs.manager.entity.User;
-import com.studydocs.manager.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Service quản lý failed login attempts và lockout policy bằng Redis.
- * 
- * Ưu điểm:
- * - Không bị ảnh hưởng bởi transaction rollback
- * - Nhanh hơn database (in-memory)
- * - Có TTL tự động (expire sau X phút)
- * - Phù hợp distributed system (shared state)
- * 
- * Strategy:
- * - Redis key: "login:attempts:{username}" -> số lần sai
- * - Redis key: "login:locked:{username}" -> thời gian unlock (timestamp)
- */
 @Service
 public class LoginAttemptService {
 
@@ -36,109 +17,88 @@ public class LoginAttemptService {
     private static final String LOCKED_KEY_PREFIX = "login:locked:";
     private static final int MAX_ATTEMPTS = 5;
     private static final int LOCK_MINUTES = 15;
-    private static final int ATTEMPTS_TTL_HOURS = 24; // Giữ attempts trong 24h
+    private static final int ATTEMPTS_TTL_HOURS = 24;
 
-    @Autowired
-    private StringRedisTemplate redisTemplate;
-    
-    @Autowired
-    private UserRepository userRepository;
+    private final StringRedisTemplate redisTemplate;
+    private final LoginAttemptPersistenceService loginAttemptPersistenceService;
 
-    /**
-     * Tăng số lần login sai cho user.
-     * @return true nếu đạt ngưỡng và bị lock, false nếu chưa
-     */
+    public LoginAttemptService(
+            StringRedisTemplate redisTemplate,
+            LoginAttemptPersistenceService loginAttemptPersistenceService) {
+        this.redisTemplate = redisTemplate;
+        this.loginAttemptPersistenceService = loginAttemptPersistenceService;
+    }
+
     public boolean incrementFailedAttempts(String username) {
         String attemptsKey = ATTEMPTS_KEY_PREFIX + username;
-        
-        // Tăng counter trong Redis (atomic operation)
+
         Long attempts = redisTemplate.opsForValue().increment(attemptsKey);
-        
-        // Set TTL cho key (24 giờ)
         redisTemplate.expire(attemptsKey, ATTEMPTS_TTL_HOURS, TimeUnit.HOURS);
-        
-        // Nếu đạt ngưỡng, lock account
+
+        int currentAttempts = attempts != null ? attempts.intValue() : 0;
+        loginAttemptPersistenceService.syncLockStatusToDatabase(username, currentAttempts, null);
+
         if (attempts != null && attempts >= MAX_ATTEMPTS) {
-            lockAccount(username);
-            return true; // Đã bị lock
+            lockAccount(username, currentAttempts);
+            return true;
         }
-        
-        return false; // Chưa bị lock
+
+        return false;
     }
 
-    /**
-     * Lock account trong Redis với TTL.
-     * Đồng thời sync ngay vào Database để đảm bảo persistence.
-     */
-    public void lockAccount(String username) {
+    public void lockAccount(String username, int failedAttempts) {
         String lockedKey = LOCKED_KEY_PREFIX + username;
         LocalDateTime unlockTime = LocalDateTime.now().plusMinutes(LOCK_MINUTES);
-        
-        // Lưu timestamp unlock vào Redis với TTL = LOCK_MINUTES
-        redisTemplate.opsForValue().set(lockedKey, unlockTime.toString(), 
-                                        LOCK_MINUTES, TimeUnit.MINUTES);
-        
-        // Sync ngay vào Database (async để không block)
-        syncLockStatusToDatabase(username, MAX_ATTEMPTS, unlockTime);
-        
-        logger.warn("Account locked due to multiple failed login attempts - username: {}, unlockTime: {}", 
-                   username, unlockTime);
+
+        redisTemplate.opsForValue().set(lockedKey, unlockTime.toString(), LOCK_MINUTES, TimeUnit.MINUTES);
+        loginAttemptPersistenceService.syncLockStatusToDatabase(username, failedAttempts, unlockTime);
+
+        logger.warn("Account locked due to multiple failed login attempts - username: {}, unlockTime: {}",
+                username, unlockTime);
     }
 
-    /**
-     * Kiểm tra xem account có bị lock không.
-     * @return LocalDateTime unlock time nếu bị lock, null nếu không
-     */
     public LocalDateTime isAccountLocked(String username) {
+        String attemptsKey = ATTEMPTS_KEY_PREFIX + username;
         String lockedKey = LOCKED_KEY_PREFIX + username;
         String unlockTimeStr = redisTemplate.opsForValue().get(lockedKey);
-        
+
         if (unlockTimeStr != null) {
             try {
                 LocalDateTime unlockTime = LocalDateTime.parse(unlockTimeStr);
-                // Nếu chưa hết thời gian lock
                 if (unlockTime.isAfter(LocalDateTime.now())) {
                     return unlockTime;
-                } else {
-                    // Đã hết thời gian lock, xóa key
-                    redisTemplate.delete(lockedKey);
-                    return null;
                 }
-            } catch (Exception e) {
-                // Nếu parse lỗi, xóa key và return null
+
                 redisTemplate.delete(lockedKey);
+                redisTemplate.delete(attemptsKey);
+                loginAttemptPersistenceService.syncLockStatusToDatabase(username, 0, null);
+                return null;
+            } catch (Exception e) {
+                redisTemplate.delete(lockedKey);
+                redisTemplate.delete(attemptsKey);
+                loginAttemptPersistenceService.syncLockStatusToDatabase(username, 0, null);
                 return null;
             }
         }
-        
-        return null; // Không bị lock
+
+        return null;
     }
 
-    /**
-     * Reset failed attempts khi login thành công.
-     * Đồng thời sync vào Database.
-     */
     public void resetFailedAttempts(String username) {
         String attemptsKey = ATTEMPTS_KEY_PREFIX + username;
         String lockedKey = LOCKED_KEY_PREFIX + username;
-        
-        // Xóa cả attempts và locked keys trong Redis
+
         redisTemplate.delete(attemptsKey);
         redisTemplate.delete(lockedKey);
-        
-        // Sync reset vào Database
-        syncLockStatusToDatabase(username, 0, null);
-        
+        loginAttemptPersistenceService.syncLockStatusToDatabase(username, 0, null);
+
         logger.info("Reset failed login attempts - username: {}", username);
     }
 
-    /**
-     * Lấy số lần login sai hiện tại (để logging/debugging).
-     */
     public int getFailedAttempts(String username) {
         String attemptsKey = ATTEMPTS_KEY_PREFIX + username;
         String attemptsStr = redisTemplate.opsForValue().get(attemptsKey);
-        
+
         if (attemptsStr != null) {
             try {
                 return Integer.parseInt(attemptsStr);
@@ -146,35 +106,7 @@ public class LoginAttemptService {
                 return 0;
             }
         }
-        
+
         return 0;
     }
-
-    /**
-     * Sync lock status từ Redis vào Database.
-     * Được gọi ngay khi lock/unlock account và định kỳ bởi scheduled task.
-     */
-    @Transactional
-    public void syncLockStatusToDatabase(String username, int failedAttempts, LocalDateTime lockedUntil) {
-        try {
-            User user = userRepository.findByUsername(username)
-                    .orElse(null);
-            
-            if (user != null) {
-                user.setFailedLoginAttempts(failedAttempts);
-                user.setLockedUntil(lockedUntil);
-                userRepository.save(user);
-                
-                // Chỉ log khi sync lock status (quan trọng) hoặc khi debug enabled
-                if (failedAttempts >= MAX_ATTEMPTS || logger.isDebugEnabled()) {
-                    logger.debug("Synced lock status to DB - username: {}, failedAttempts: {}, lockedUntil: {}", 
-                               username, failedAttempts, lockedUntil);
-                }
-            }
-        } catch (Exception e) {
-            logger.error("Error syncing lock status to database for user: {}", username, e);
-            // Không throw exception để không ảnh hưởng đến Redis operations
-        }
-    }
 }
-

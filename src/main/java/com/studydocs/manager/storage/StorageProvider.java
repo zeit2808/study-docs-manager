@@ -15,42 +15,52 @@ import java.io.InputStream;
 public interface StorageProvider {
     /**
      * Upload file lên storage
-     * 
+     *
      * @param file   MultipartFile từ request
      * @param folder Folder/prefix để lưu file (vd: "documents/", "thumbnails/")
      * @return URL công khai để truy cập file
      */
-    String uploadFile(MultipartFile file, String folder) throws IOException;
+    StoredFile uploadFile(MultipartFile file, String folder) throws IOException;
+
+    /**
+     * Copy file already stored in the provider into a new object.
+     *
+     * @param sourceObjectName Source object name or full URL
+     * @param targetFolder          Target folder/prefix (e.g. "documents/")
+     * @param originalFilename      Original filename to preserve in the copied object name
+     * @return Newly created object name
+     */
+    String copyFile(String sourceObjectName, String targetFolder, String originalFilename) throws IOException;
 
     /**
      * Xóa file từ storage
      * 
-     * @param objectNameOrUrl Object name hoặc URL đầy đủ của file
+     * @param objectName Object name
      */
-    void deleteFile(String objectNameOrUrl) throws IOException;
+    void deleteFile(String objectName) throws IOException;
 
     /**
      * Download file dưới dạng InputStream (tối ưu cho file lớn)
      * 
-     * @param objectNameOrUrl Object name hoặc URL đầy đủ của file
+     * @param objectName Object name
      * @return InputStream để đọc file content
      */
-    InputStream downloadFileAsStream(String objectNameOrUrl) throws IOException;
+    InputStream downloadFileAsStream(String objectName) throws IOException;
 
     /**
      * Generate presigned URL có thời hạn để truy cập file
      * 
-     * @param objectNameOrUrl   Object name hoặc URL đầy đủ của file
+     * @param objectName   Object name
      * @param expirationMinutes Thời gian hết hạn (phút)
      * @return Presigned URL
      */
-    String generatePresignedUrl(String objectNameOrUrl, int expirationMinutes) throws IOException;
+    String generatePresignedUrl(String objectName, int expirationMinutes) throws IOException;
 
     /**
      * Kiểm tra file có tồn tại không
      * 
-     * @param objectNameOrUrl Object name hoặc URL đầy đủ của file
+     * @param objectName Object name
      * @return true nếu tồn tại, false nếu không
      */
-    boolean fileExists(String objectNameOrUrl);
+    boolean fileExists(String objectName);
 }

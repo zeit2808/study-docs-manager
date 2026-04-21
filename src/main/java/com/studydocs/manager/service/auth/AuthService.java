@@ -1,70 +1,69 @@
 package com.studydocs.manager.service.auth;
-
+import java.time.LocalDateTime;
+import com.studydocs.manager.dto.auth.AdminRegisterRequest;
 import com.studydocs.manager.dto.auth.JwtResponse;
 import com.studydocs.manager.dto.auth.LoginRequest;
 import com.studydocs.manager.dto.auth.RegisterRequest;
-import com.studydocs.manager.dto.auth.AdminRegisterRequest;
 import com.studydocs.manager.entity.Role;
 import com.studydocs.manager.entity.User;
+import com.studydocs.manager.enums.RoleName;
+import com.studydocs.manager.exception.ConflictException;
+import com.studydocs.manager.exception.NotFoundException;
+import com.studydocs.manager.exception.UnauthorizedException;
 import com.studydocs.manager.repository.RoleRepository;
 import com.studydocs.manager.repository.UserRepository;
 import com.studydocs.manager.security.jwt.JwtTokenProvider;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionTemplate;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
-import com.studydocs.manager.search.UserSearchService;
-
-import java.util.HashSet;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 public class AuthService {
 
     private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
 
-    @Autowired
-    private AuthenticationManager authenticationManager;
-    @Autowired
-    private UserRepository userRepository;
-    @Autowired
-    private RoleRepository roleRepository;
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-    @Autowired
-    private JwtTokenProvider tokenProvider;
-    @Autowired(required = false)
-    private UserSearchService userSearchService;
+    private final AuthenticationManager authenticationManager;
+    private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider tokenProvider;
+    private final LoginAttemptService loginAttemptService;
 
-    @PersistenceContext
-    private EntityManager entityManager;
-
-    @Autowired
-    private org.springframework.transaction.PlatformTransactionManager transactionManager;
-
-    @Autowired
-    private LoginAttemptService loginAttemptService;
+    public AuthService(
+            AuthenticationManager authenticationManager,
+            UserRepository userRepository,
+            RoleRepository roleRepository,
+            PasswordEncoder passwordEncoder,
+            JwtTokenProvider tokenProvider,
+            LoginAttemptService loginAttemptService) {
+        this.authenticationManager = authenticationManager;
+        this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.tokenProvider = tokenProvider;
+        this.loginAttemptService = loginAttemptService;
+    }
 
     @Transactional
     public JwtResponse login(LoginRequest loginRequest) {
         User user = userRepository.findByUsername(loginRequest.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UnauthorizedException(
+                        "Username/password is incorrect",
+                        "INVALID_CREDENTIALS",
+                        null));
 
-        // Check locked trong Redis TRƯỚC khi authenticate
-        java.time.LocalDateTime unlockTime = loginAttemptService.isAccountLocked(loginRequest.getUsername());
+        LocalDateTime unlockTime = loginAttemptService.isAccountLocked(loginRequest.getUsername());
         if (unlockTime != null) {
-            throw new RuntimeException("Account is locked until " + unlockTime);
+            throw new UnauthorizedException(
+                    "Account is locked until " + unlockTime,
+                    "ACCOUNT_LOCKED",
+                    null);
         }
 
         try {
@@ -73,48 +72,43 @@ public class AuthService {
                             loginRequest.getUsername(), loginRequest.getPassword()));
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
-
-            // Login success → reset counter trong Redis
             loginAttemptService.resetFailedAttempts(loginRequest.getUsername());
 
             String jwt = tokenProvider.generateToken(authentication);
-            Set<String> roles = user.getRoles().stream()
-                    .map(role -> "ROLE_" + role.getName())
-                    .collect(Collectors.toSet());
-            return new JwtResponse(jwt, user.getId(), user.getUsername(), user.getEmail(), roles);
-
+            String roleName = "ROLE_" + user.getRole().getName();
+            return new JwtResponse(jwt, user.getId(), user.getUsername(), user.getEmail(), roleName);
         } catch (org.springframework.security.core.AuthenticationException ex) {
-            // Login fail → tăng failed attempts trong Redis (không bị rollback)
             boolean isLocked = loginAttemptService.incrementFailedAttempts(loginRequest.getUsername());
 
             if (isLocked) {
-                // Đã đạt ngưỡng và bị lock - log warning vì đây là security event
                 unlockTime = loginAttemptService.isAccountLocked(loginRequest.getUsername());
                 logger.warn("Account locked due to multiple failed login attempts - username: {}, unlockTime: {}",
                         loginRequest.getUsername(), unlockTime);
-                throw new RuntimeException("Account is locked until " + unlockTime + " due to 5 failed login attempts");
+                throw new UnauthorizedException(
+                        "Account is locked until " + unlockTime + " due to 5 failed login attempts",
+                        "ACCOUNT_LOCKED",
+                        null);
             }
 
-            // Login sai nhưng chưa bị lock - không log (expected behavior)
-            // Chỉ log nếu cần debug (có thể bật bằng log level)
             if (logger.isDebugEnabled()) {
                 int attempts = loginAttemptService.getFailedAttempts(loginRequest.getUsername());
                 logger.debug("Login failed - username: {}, current attempts: {}",
                         loginRequest.getUsername(), attempts);
             }
-
-            throw new RuntimeException("Invalid username or password");
+            throw new UnauthorizedException(
+                    "Username/password is incorrect",
+                    "INVALID_CREDENTIALS",
+                    null);
         }
     }
 
     @Transactional
     public User register(RegisterRequest registerRequest) {
-        if (userRepository.existsByUsername(registerRequest.getUsername())) {
-            throw new RuntimeException("Username is already taken");
-        }
-        if (userRepository.existsByEmail(registerRequest.getEmail())) {
-            throw new RuntimeException("Email is already in use");
-        }
+        validateRegistrationUniqueness(
+                registerRequest.getUsername(),
+                registerRequest.getEmail(),
+                registerRequest.getPhone());
+
         User user = new User();
         user.setUsername(registerRequest.getUsername());
         user.setEmail(registerRequest.getEmail());
@@ -123,54 +117,47 @@ public class AuthService {
         user.setEnabled(true);
         user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
 
-        // Normal registration always sets USER role (ignore any roles in request)
-        Set<Role> roles = new HashSet<>();
         Role userRole = roleRepository.findByName("USER")
-                .orElseThrow(() -> new RuntimeException("Role USER not found"));
-        roles.add(userRole);
-        user.setRoles(roles);
+                .orElseThrow(() -> new NotFoundException("Role USER not found", "ROLE_NOT_FOUND", "role"));
+        user.setRole(userRole);
 
         User saved = userRepository.save(user);
-        // index vào Elasticsearch để hỗ trợ search nhanh (nếu ES available)
-        if (userSearchService != null) {
-            userSearchService.indexUser(saved);
-        }
         return saved;
     }
 
     @Transactional
-    public User registerByAdmin(AdminRegisterRequest adminRegisterRequest) {
-        if (userRepository.existsByUsername(adminRegisterRequest.getUsername())) {
-            throw new RuntimeException("Username is already taken");
-        }
-        if (userRepository.existsByEmail(adminRegisterRequest.getEmail())) {
-            throw new RuntimeException("Email is already in use");
-        }
-        User user = new User();
-        user.setUsername(adminRegisterRequest.getUsername());
-        user.setEmail(adminRegisterRequest.getEmail());
-        user.setFullname(adminRegisterRequest.getFullname());
-        user.setPhone(adminRegisterRequest.getPhone());
-        user.setEnabled(adminRegisterRequest.getEnabled() != null ? adminRegisterRequest.getEnabled() : true);
-        user.setPassword(passwordEncoder.encode(adminRegisterRequest.getPassword()));
+    public User registerByAdmin(AdminRegisterRequest req) {
+        validateRegistrationUniqueness(req.getUsername(), req.getEmail(), req.getPhone());
 
-        // Admin can set any roles
-        Set<Role> roles = new HashSet<>();
-        if (adminRegisterRequest.getRoles() == null || adminRegisterRequest.getRoles().isEmpty()) {
-            throw new RuntimeException("Roles must be provided when registering by admin");
-        }
-        adminRegisterRequest.getRoles().forEach(roleName -> {
-            Role role = roleRepository.findByName(roleName.toUpperCase())
-                    .orElseThrow(() -> new RuntimeException("Role " + roleName + " not found"));
-            roles.add(role);
-        });
-        user.setRoles(roles);
+        User user = new User();
+        user.setUsername(req.getUsername());
+        user.setEmail(req.getEmail());
+        user.setFullname(req.getFullname());
+        user.setPhone(req.getPhone());
+        user.setEnabled(req.getEnabled() != null ? req.getEnabled() : true);
+        user.setPassword(passwordEncoder.encode(req.getPassword()));
+
+        RoleName roleName = req.getRole() != null ? req.getRole() : RoleName.USER;
+        Role role = roleRepository.findByName(roleName.name())
+                .orElseThrow(() -> new NotFoundException(
+                        "Role " + roleName + " not found in database",
+                        "ROLE_NOT_FOUND",
+                        "role"));
+        user.setRole(role);
 
         User saved = userRepository.save(user);
-        // index vào Elasticsearch để hỗ trợ search nhanh (nếu ES available)
-        if (userSearchService != null) {
-            userSearchService.indexUser(saved);
-        }
         return saved;
+    }
+
+    private void validateRegistrationUniqueness(String username, String email, String phone) {
+        if (userRepository.existsByUsername(username)) {
+            throw new ConflictException("Username is already taken", "USERNAME_TAKEN", "username");
+        }
+        if (userRepository.existsByEmail(email)) {
+            throw new ConflictException("Email is already in use", "EMAIL_TAKEN", "email");
+        }
+        if (phone != null && !phone.isBlank() && userRepository.existsByPhone(phone)) {
+            throw new ConflictException("Phone number is already in use", "PHONE_TAKEN", "phone");
+        }
     }
 }

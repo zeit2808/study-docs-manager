@@ -6,7 +6,6 @@ import io.minio.MinioClient;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -20,11 +19,13 @@ public class MinIOBucketInitializer {
 
     private static final Logger logger = LoggerFactory.getLogger(MinIOBucketInitializer.class);
 
-    @Autowired
-    private MinioClient minioClient;
+    private final MinioClient minioClient;
+    private final MinIOProperties minIOProperties;
 
-    @Autowired
-    private MinIOProperties minIOProperties;
+    public MinIOBucketInitializer(MinioClient minioClient, MinIOProperties minIOProperties) {
+        this.minioClient = minioClient;
+        this.minIOProperties = minIOProperties;
+    }
 
     /**
      * Khởi tạo bucket khi application start

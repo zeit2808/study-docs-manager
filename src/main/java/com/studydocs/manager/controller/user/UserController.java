@@ -1,108 +1,77 @@
 package com.studydocs.manager.controller.user;
 
+import com.studydocs.manager.application.user.UserApplicationService;
 import com.studydocs.manager.dto.auth.AdminRegisterRequest;
 import com.studydocs.manager.dto.user.UserResponse;
-import com.studydocs.manager.dto.user.UserUpdateRequest;
-import com.studydocs.manager.entity.User;
-import com.studydocs.manager.service.auth.AuthService;
-import com.studydocs.manager.service.user.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
-import com.studydocs.manager.search.UserSearchService;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+
 @RestController
 @RequestMapping("/api/users")
-@Tag(name = "User Management",description = "APIs for managing users")
-@SecurityRequirement(name="bearerAuth")
+@Tag(name = "User Management", description = "APIs for managing users")
+@SecurityRequirement(name = "bearerAuth")
 public class UserController {
-    @Autowired
-    private UserService userService;
-    @Autowired(required = false)
-    private UserSearchService userSearchService;
-    @Autowired
-    private AuthService authService;
+    private final UserApplicationService userApplicationService;
+
+    public UserController(UserApplicationService userApplicationService) {
+        this.userApplicationService = userApplicationService;
+    }
 
     @PostMapping
     @Operation(summary = "Register User by Admin", description = "Admin can register a new user with any role")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<UserResponse> registerUserByAdmin(@Valid @RequestBody AdminRegisterRequest adminRegisterRequest) {
-        try {
-            User user = authService.registerByAdmin(adminRegisterRequest);
-            UserResponse response = new UserResponse();
-            response.setId(user.getId());
-            response.setUsename(user.getUsername());
-            response.setEmail(user.getEmail());
-            response.setFullname(user.getFullname());
-            response.setPhone(user.getPhone());
-            response.setEnabled(user.getEnabled());
-            response.setCreatedAt(user.getCreatedAt());
-            response.setUpdateAt(user.getUpdateAt());
-            response.setRoles(user.getRoles().stream()
-                    .map(role -> role.getName())
-                    .collect(java.util.stream.Collectors.toSet()));
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        }
+    public ResponseEntity<UserResponse> registerUserByAdmin(
+            @Valid @RequestBody AdminRegisterRequest adminRegisterRequest) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(userApplicationService.registerUserByAdmin(adminRegisterRequest));
     }
 
     @GetMapping("/search")
-    @Operation(summary = "Search users", description = "Search users by username, fullname or email using Elasticsearch")
+    @Operation(summary = "Search users", description = "Search users by username, fullname or email using database query")
     @PreAuthorize("hasAnyRole('ADMIN','USER')")
-    public ResponseEntity<List<UserResponse>> searchUsers(@RequestParam("q") String keyword) {
-        if (userSearchService == null) {
-            // Fallback: search từ MySQL nếu ES không available
-            return ResponseEntity.ok(userService.getAllUsers().stream()
-                    .filter(user -> {
-                        String kw = keyword == null ? "" : keyword.toLowerCase();
-                        return (user.getUsename() != null && user.getUsename().toLowerCase().contains(kw)) ||
-                               (user.getFullname() != null && user.getFullname().toLowerCase().contains(kw)) ||
-                               (user.getEmail() != null && user.getEmail().toLowerCase().contains(kw));
-                    })
-                    .toList());
-        }
-        List<UserResponse> results = userSearchService.searchUsers(keyword);
-        return ResponseEntity.ok(results);
+    public ResponseEntity<List<UserResponse>> searchUsers(
+            @RequestParam("q") String keyword,
+            @RequestParam(defaultValue = "20") int limit) {
+        return ResponseEntity.ok(userApplicationService.searchUsers(keyword, limit));
     }
 
     @GetMapping
     @Operation(summary = "Get All Users", description = "Retrieve a list of all registered users")
     @PreAuthorize("hasAnyRole('ADMIN','USER')")
-    public ResponseEntity<List<UserResponse>> getAllUsers(){
-        List<UserResponse> users = userService.getAllUsers();
+    public ResponseEntity<List<UserResponse>> getAllUsers() {
+        List<UserResponse> users = userApplicationService.getAllUsers();
         return ResponseEntity.ok(users);
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Get User by ID", description = "Retrieve user details by user")
     @PreAuthorize("hasAnyRole('ADMIN','USER')")
-    public ResponseEntity<UserResponse> getUserById(@PathVariable Long id){
-        try{
-            UserResponse user = userService.getUserById(id);
-            return ResponseEntity.ok(user);
-        }catch (RuntimeException e){
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        }
+    public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
+        UserResponse user = userApplicationService.getUserById(id);
+        return ResponseEntity.ok(user);
     }
 
     @GetMapping("/username/{username}")
     @Operation(summary = "Get Users By Username", description = "Admin and User can access")
     @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
     public ResponseEntity<UserResponse> getUserByUsername(@PathVariable String username) {
-        try {
-            UserResponse user = userService.getUserByUsername(username);
-            return ResponseEntity.ok(user);
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        }
+        UserResponse user = userApplicationService.getUserByUsername(username);
+        return ResponseEntity.ok(user);
     }
 
     @PutMapping("/{id}")
@@ -110,28 +79,16 @@ public class UserController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserResponse> updateUser(
             @PathVariable Long id,
-            @Valid @RequestBody UserUpdateRequest updateRequest) {
-        try {
-            UserResponse updatedUser = userService.updateUser(id, updateRequest);
-            return ResponseEntity.ok(updatedUser);
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        }
+            @Valid @RequestBody com.studydocs.manager.dto.user.UserUpdateRequest updateRequest) {
+        UserResponse updatedUser = userApplicationService.updateUser(id, updateRequest);
+        return ResponseEntity.ok(updatedUser);
     }
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete user", description = "Admin can delete a user by ID")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
-        try {
-            userService.deleteUser(id);
-            return ResponseEntity.noContent().build();
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        }
+        userApplicationService.deleteUser(id);
+        return ResponseEntity.noContent().build();
     }
-
-
-
-
 }
