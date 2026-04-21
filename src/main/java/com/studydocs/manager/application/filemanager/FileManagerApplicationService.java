@@ -1,4 +1,4 @@
-package com.studydocs.manager.application.file;
+package com.studydocs.manager.application.filemanager;
 
 import com.studydocs.manager.dto.filemanager.FileManagerDeleteRequest;
 import com.studydocs.manager.dto.filemanager.FileManagerDeleteResponse;
@@ -7,18 +7,18 @@ import com.studydocs.manager.dto.filemanager.FileManagerTransferRequest;
 import com.studydocs.manager.dto.folder.FolderDeleteResult;
 import com.studydocs.manager.entity.Document;
 import com.studydocs.manager.entity.Folder;
-import com.studydocs.manager.service.file.FileManagerTransferWorkflow;
-import com.studydocs.manager.service.file.DeleteDocumentUseCase;
-import com.studydocs.manager.service.file.DeleteFolderUseCase;
-import com.studydocs.manager.service.file.DeleteItemsUseCase;
-import com.studydocs.manager.service.file.RestoreDocumentUseCase;
-import com.studydocs.manager.service.file.RestoreFolderUseCase;
+import com.studydocs.manager.application.filemanager.usecase.TransferItemsUseCase;
+import com.studydocs.manager.application.filemanager.usecase.DeleteDocumentUseCase;
+import com.studydocs.manager.application.filemanager.usecase.DeleteFolderUseCase;
+import com.studydocs.manager.application.filemanager.usecase.DeleteItemsUseCase;
+import com.studydocs.manager.application.filemanager.usecase.RestoreDocumentUseCase;
+import com.studydocs.manager.application.filemanager.usecase.RestoreFolderUseCase;
 import org.springframework.stereotype.Service;
 
 @Service
 public class FileManagerApplicationService {
 
-    private final FileManagerTransferWorkflow fileManagerTransferWorkflow;
+    private final TransferItemsUseCase transferItemsUseCase;
     private final DeleteItemsUseCase deleteItemsUseCase;
     private final DeleteDocumentUseCase deleteDocumentUseCase;
     private final DeleteFolderUseCase deleteFolderUseCase;
@@ -26,13 +26,13 @@ public class FileManagerApplicationService {
     private final RestoreFolderUseCase restoreFolderUseCase;
 
     public FileManagerApplicationService(
-            FileManagerTransferWorkflow fileManagerTransferWorkflow,
+            TransferItemsUseCase transferItemsUseCase,
             DeleteItemsUseCase deleteItemsUseCase,
             DeleteDocumentUseCase deleteDocumentUseCase,
             DeleteFolderUseCase deleteFolderUseCase,
             RestoreDocumentUseCase restoreDocumentUseCase,
             RestoreFolderUseCase restoreFolderUseCase) {
-        this.fileManagerTransferWorkflow = fileManagerTransferWorkflow;
+        this.transferItemsUseCase = transferItemsUseCase;
         this.deleteItemsUseCase = deleteItemsUseCase;
         this.deleteDocumentUseCase = deleteDocumentUseCase;
         this.deleteFolderUseCase = deleteFolderUseCase;
@@ -41,11 +41,11 @@ public class FileManagerApplicationService {
     }
 
     public FileManagerPasteResponse copy(FileManagerTransferRequest request) {
-        return fileManagerTransferWorkflow.copy(request);
+        return transferItemsUseCase.copy(request);
     }
 
     public FileManagerPasteResponse move(FileManagerTransferRequest request) {
-        return fileManagerTransferWorkflow.move(request);
+        return transferItemsUseCase.move(request);
     }
 
     public FileManagerDeleteResponse delete(FileManagerDeleteRequest request) {

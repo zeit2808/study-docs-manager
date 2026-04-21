@@ -1,4 +1,4 @@
-package com.studydocs.manager.service.file;
+package com.studydocs.manager.application.filemanager.usecase;
 
 import com.studydocs.manager.dto.filemanager.FileManagerPasteResponse;
 import com.studydocs.manager.dto.filemanager.FileManagerPasteResult;
@@ -14,6 +14,12 @@ import com.studydocs.manager.exception.BadRequestException;
 import com.studydocs.manager.exception.ConflictException;
 import com.studydocs.manager.repository.DocumentRepository;
 import com.studydocs.manager.repository.FolderRepository;
+import com.studydocs.manager.service.file.FileManagerEventService;
+import com.studydocs.manager.service.file.FileManagerNamePolicy;
+import com.studydocs.manager.service.file.FileManagerNamespaceService;
+import com.studydocs.manager.service.file.FileManagerResponseFactory;
+import com.studydocs.manager.service.file.FileManagerSelection;
+import com.studydocs.manager.service.file.FileManagerTreeService;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;

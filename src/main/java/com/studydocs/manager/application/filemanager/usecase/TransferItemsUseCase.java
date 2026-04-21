@@ -1,4 +1,4 @@
-package com.studydocs.manager.service.file;
+package com.studydocs.manager.application.filemanager.usecase;
 
 import com.studydocs.manager.dto.filemanager.FileManagerPasteResponse;
 import com.studydocs.manager.dto.filemanager.FileManagerTransferRequest;
@@ -7,13 +7,17 @@ import com.studydocs.manager.entity.User;
 import com.studydocs.manager.enums.ClipboardOperation;
 import com.studydocs.manager.enums.FileManagerItemType;
 import com.studydocs.manager.exception.BadRequestException;
+import com.studydocs.manager.service.file.FileManagerAccessService;
+import com.studydocs.manager.service.file.FileManagerSelection;
+import com.studydocs.manager.service.file.FileManagerSelectionResolver;
+import com.studydocs.manager.service.file.FileManagerTreeService;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Service
-public class FileManagerTransferWorkflow {
+public class TransferItemsUseCase {
 
     private final FileManagerSelectionResolver fileManagerSelectionResolver;
     private final FileManagerTreeService fileManagerTreeService;
@@ -21,7 +25,7 @@ public class FileManagerTransferWorkflow {
     private final MoveItemsUseCase moveItemsUseCase;
     private final CopyItemsUseCase copyItemsUseCase;
 
-    public FileManagerTransferWorkflow(
+    public TransferItemsUseCase(
             FileManagerSelectionResolver fileManagerSelectionResolver,
             FileManagerTreeService fileManagerTreeService,
             FileManagerAccessService fileManagerAccessService,

@@ -1,4 +1,4 @@
-package com.studydocs.manager.service.file;
+package com.studydocs.manager.application.filemanager.usecase;
 
 import com.studydocs.manager.dto.folder.FolderDeleteResult;
 import com.studydocs.manager.entity.Document;
@@ -7,6 +7,9 @@ import com.studydocs.manager.entity.User;
 import com.studydocs.manager.enums.DocumentStatus;
 import com.studydocs.manager.repository.DocumentRepository;
 import com.studydocs.manager.repository.FolderRepository;
+import com.studydocs.manager.service.file.FileManagerAccessService;
+import com.studydocs.manager.service.file.FileManagerEventService;
+import com.studydocs.manager.service.file.FileManagerTreeService;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;

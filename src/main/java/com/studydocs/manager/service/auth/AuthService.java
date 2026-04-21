@@ -65,7 +65,6 @@ public class AuthService {
                     "ACCOUNT_LOCKED",
                     null);
         }
-
         try {
             Authentication authentication = authenticationManager
                     .authenticate(new UsernamePasswordAuthenticationToken(

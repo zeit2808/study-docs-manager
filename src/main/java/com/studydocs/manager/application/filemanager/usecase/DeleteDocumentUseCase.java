@@ -1,4 +1,4 @@
-package com.studydocs.manager.service.file;
+package com.studydocs.manager.application.filemanager.usecase;
 
 import com.studydocs.manager.entity.Document;
 import com.studydocs.manager.entity.User;
@@ -6,6 +6,8 @@ import com.studydocs.manager.enums.DocumentEventType;
 import com.studydocs.manager.enums.DocumentStatus;
 import com.studydocs.manager.exception.NotFoundException;
 import com.studydocs.manager.repository.DocumentRepository;
+import com.studydocs.manager.service.file.FileManagerAccessService;
+import com.studydocs.manager.service.file.FileManagerEventService;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;

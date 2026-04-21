@@ -1,6 +1,6 @@
 package com.studydocs.manager.service.folder;
 
-import com.studydocs.manager.application.file.FileManagerApplicationService;
+import com.studydocs.manager.application.filemanager.FileManagerApplicationService;
 import com.studydocs.manager.dto.folder.FolderCreateRequest;
 import com.studydocs.manager.dto.folder.FolderDeleteResult;
 import com.studydocs.manager.dto.folder.FolderResponse;

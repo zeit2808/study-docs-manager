@@ -1,4 +1,4 @@
-package com.studydocs.manager.service.file;
+package com.studydocs.manager.application.filemanager.usecase;
 
 import com.studydocs.manager.entity.Document;
 import com.studydocs.manager.entity.DocumentAsset;
@@ -8,6 +8,12 @@ import com.studydocs.manager.exception.BadRequestException;
 import com.studydocs.manager.repository.DocumentAssetRepository;
 import com.studydocs.manager.repository.DocumentRepository;
 import com.studydocs.manager.repository.FolderRepository;
+import com.studydocs.manager.service.file.FileManagerAccessService;
+import com.studydocs.manager.service.file.FileManagerAssetStateService;
+import com.studydocs.manager.service.file.FileManagerNamePolicy;
+import com.studydocs.manager.service.file.FileManagerNamespaceService;
+import com.studydocs.manager.service.file.FileManagerNamingService;
+import com.studydocs.manager.service.file.FileManagerTreeService;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;

@@ -1,6 +1,6 @@
 package com.studydocs.manager.service.document;
 
-import com.studydocs.manager.application.file.FileManagerApplicationService;
+import com.studydocs.manager.application.filemanager.FileManagerApplicationService;
 import com.studydocs.manager.dto.document.DocumentCreateRequest;
 import com.studydocs.manager.dto.document.DocumentResponse;
 import com.studydocs.manager.dto.document.DocumentUpdateRequest;

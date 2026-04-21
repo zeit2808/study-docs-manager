@@ -1,6 +1,6 @@
 package com.studydocs.manager.controller.file;
 
-import com.studydocs.manager.application.file.FileManagerApplicationService;
+import com.studydocs.manager.application.filemanager.FileManagerApplicationService;
 import com.studydocs.manager.dto.filemanager.FileManagerDeleteRequest;
 import com.studydocs.manager.dto.filemanager.FileManagerDeleteResponse;
 import com.studydocs.manager.dto.filemanager.FileManagerPasteResponse;

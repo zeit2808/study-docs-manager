@@ -1,4 +1,4 @@
-package com.studydocs.manager.service.file;
+package com.studydocs.manager.application.filemanager.usecase;
 
 import com.studydocs.manager.dto.filemanager.FileManagerDeleteRequest;
 import com.studydocs.manager.dto.filemanager.FileManagerDeleteResponse;
@@ -12,6 +12,8 @@ import com.studydocs.manager.exception.ForbiddenException;
 import com.studydocs.manager.exception.NotFoundException;
 import com.studydocs.manager.repository.DocumentRepository;
 import com.studydocs.manager.repository.FolderRepository;
+import com.studydocs.manager.service.file.FileManagerAccessService;
+import com.studydocs.manager.service.file.FileManagerSelectionResolver;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
