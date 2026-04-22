@@ -1,4 +1,4 @@
-package com.studydocs.manager.service.file;
+package com.studydocs.manager.service.filemanager;
 
 import com.studydocs.manager.entity.Document;
 import com.studydocs.manager.entity.Folder;

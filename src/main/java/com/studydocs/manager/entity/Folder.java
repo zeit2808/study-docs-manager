@@ -70,6 +70,18 @@ public class Folder {
         normalizedName = normalizeName(name);
     }
 
+    public void markDeleted(User actor, Long deletedRootFolderId, LocalDateTime deletedTime) {
+        this.deletedAt = deletedTime != null ? deletedTime : LocalDateTime.now();
+        this.deletedBy = actor;
+        this.deletedRootFolderId = deletedRootFolderId;
+    }
+
+    public void restoreFromTrash() {
+        this.deletedAt = null;
+        this.deletedBy = null;
+        this.deletedRootFolderId = null;
+    }
+
     // Getters and Setters
     public Long getId() {
         return id;

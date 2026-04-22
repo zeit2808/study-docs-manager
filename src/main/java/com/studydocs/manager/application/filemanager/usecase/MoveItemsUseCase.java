@@ -14,12 +14,13 @@ import com.studydocs.manager.exception.BadRequestException;
 import com.studydocs.manager.exception.ConflictException;
 import com.studydocs.manager.repository.DocumentRepository;
 import com.studydocs.manager.repository.FolderRepository;
-import com.studydocs.manager.service.file.FileManagerEventService;
-import com.studydocs.manager.service.file.FileManagerNamePolicy;
-import com.studydocs.manager.service.file.FileManagerNamespaceService;
-import com.studydocs.manager.service.file.FileManagerResponseFactory;
-import com.studydocs.manager.service.file.FileManagerSelection;
-import com.studydocs.manager.service.file.FileManagerTreeService;
+import com.studydocs.manager.service.filemanager.FileManagerEventService;
+import com.studydocs.manager.service.filemanager.FileManagerNamePolicy;
+import com.studydocs.manager.service.filemanager.FileManagerNamespaceService;
+import com.studydocs.manager.service.filemanager.FileManagerResponseFactory;
+import com.studydocs.manager.service.filemanager.FileManagerSelection;
+import com.studydocs.manager.service.filemanager.FileManagerTreeService;
+import com.studydocs.manager.service.folder.FolderEventService;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -37,6 +38,7 @@ public class MoveItemsUseCase {
     private final FileManagerTreeService fileManagerTreeService;
     private final FileManagerEventService fileManagerEventService;
     private final FileManagerResponseFactory fileManagerResponseFactory;
+    private final FolderEventService folderEventService;
 
     public MoveItemsUseCase(
             FolderRepository folderRepository,
@@ -45,7 +47,8 @@ public class MoveItemsUseCase {
             FileManagerNamespaceService fileManagerNamespaceService,
             FileManagerTreeService fileManagerTreeService,
             FileManagerEventService fileManagerEventService,
-            FileManagerResponseFactory fileManagerResponseFactory) {
+            FileManagerResponseFactory fileManagerResponseFactory,
+            FolderEventService folderEventService) {
         this.folderRepository = folderRepository;
         this.documentRepository = documentRepository;
         this.fileManagerNamePolicy = fileManagerNamePolicy;
@@ -53,6 +56,7 @@ public class MoveItemsUseCase {
         this.fileManagerTreeService = fileManagerTreeService;
         this.fileManagerEventService = fileManagerEventService;
         this.fileManagerResponseFactory = fileManagerResponseFactory;
+        this.folderEventService = folderEventService;
     }
 
     public FileManagerPasteResponse execute(List<FileManagerSelection> selections, Folder targetFolder, User actor) {
@@ -123,7 +127,10 @@ public class MoveItemsUseCase {
                         saved.getId(),
                         saved.getName(),
                         targetFolder));
+                // audit_logs: admin oversight (actor, targetFolder, IP)
                 fileManagerEventService.logFolderAudit(actor, saved, AuditAction.MOVE_FOLDER, targetFolder);
+                // folder_events: history timeline của folder
+                folderEventService.logMoved(saved, folder.getParent());
                 continue;
             }
 
@@ -137,7 +144,9 @@ public class MoveItemsUseCase {
                     saved.getId(),
                     fileManagerNamePolicy.effectiveDocumentName(saved),
                     targetFolder));
+            // document_events: lifecycle history của document
             fileManagerEventService.logDocumentEvent(saved, DocumentEventType.MOVED, "Document moved");
+            // audit_logs: admin oversight (actor, targetFolder, IP)
             fileManagerEventService.logDocumentAudit(actor, saved, AuditAction.MOVE_DOCUMENT, targetFolder);
             if (saved.getStatus() == DocumentStatus.PUBLISHED) {
                 documentsToReindex.add(saved);

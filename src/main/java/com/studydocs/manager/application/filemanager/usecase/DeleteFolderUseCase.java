@@ -4,12 +4,12 @@ import com.studydocs.manager.dto.folder.FolderDeleteResult;
 import com.studydocs.manager.entity.Document;
 import com.studydocs.manager.entity.Folder;
 import com.studydocs.manager.entity.User;
-import com.studydocs.manager.enums.DocumentStatus;
 import com.studydocs.manager.repository.DocumentRepository;
 import com.studydocs.manager.repository.FolderRepository;
-import com.studydocs.manager.service.file.FileManagerAccessService;
-import com.studydocs.manager.service.file.FileManagerEventService;
-import com.studydocs.manager.service.file.FileManagerTreeService;
+import com.studydocs.manager.service.filemanager.FileManagerAccessService;
+import com.studydocs.manager.service.filemanager.FileManagerEventService;
+import com.studydocs.manager.service.filemanager.FileManagerTreeService;
+import com.studydocs.manager.service.folder.FolderEventService;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -23,18 +23,21 @@ public class DeleteFolderUseCase {
     private final FileManagerTreeService fileManagerTreeService;
     private final FileManagerAccessService fileManagerAccessService;
     private final FileManagerEventService fileManagerEventService;
+    private final FolderEventService folderEventService;
 
     public DeleteFolderUseCase(
             FolderRepository folderRepository,
             DocumentRepository documentRepository,
             FileManagerTreeService fileManagerTreeService,
             FileManagerAccessService fileManagerAccessService,
-            FileManagerEventService fileManagerEventService) {
+            FileManagerEventService fileManagerEventService,
+            FolderEventService folderEventService) {
         this.folderRepository = folderRepository;
         this.documentRepository = documentRepository;
         this.fileManagerTreeService = fileManagerTreeService;
         this.fileManagerAccessService = fileManagerAccessService;
         this.fileManagerEventService = fileManagerEventService;
+        this.folderEventService = folderEventService;
     }
 
     public FolderDeleteResult execute(Long id) {
@@ -44,6 +47,7 @@ public class DeleteFolderUseCase {
 
         List<Document> deletedDocuments = softDeleteFolderTree(folder, actor);
         deletedDocuments.stream().map(Document::getId).forEach(fileManagerEventService::deleteFromIndex);
+        folderEventService.logDeleted(folder);
         return new FolderDeleteResult(id, deletedDocuments.size());
     }
 
@@ -55,16 +59,11 @@ public class DeleteFolderUseCase {
         List<Document> documentsToDelete = fileManagerTreeService.collectActiveDocuments(foldersToDelete);
 
         for (Folder folder : foldersToDelete) {
-            folder.setDeletedAt(now);
-            folder.setDeletedBy(actor);
-            folder.setDeletedRootFolderId(rootFolderId);
+            folder.markDeleted(actor, rootFolderId, now);
         }
 
         for (Document document : documentsToDelete) {
-            document.setDeletedAt(now);
-            document.setDeletedBy(actor);
-            document.setDeletedRootFolderId(rootFolderId);
-            document.setStatus(DocumentStatus.DELETED);
+            document.markDeleted(actor, rootFolderId, now);
         }
 
         folderRepository.saveAll(foldersToDelete);

@@ -3,11 +3,10 @@ package com.studydocs.manager.application.filemanager.usecase;
 import com.studydocs.manager.entity.Document;
 import com.studydocs.manager.entity.User;
 import com.studydocs.manager.enums.DocumentEventType;
-import com.studydocs.manager.enums.DocumentStatus;
 import com.studydocs.manager.exception.NotFoundException;
 import com.studydocs.manager.repository.DocumentRepository;
-import com.studydocs.manager.service.file.FileManagerAccessService;
-import com.studydocs.manager.service.file.FileManagerEventService;
+import com.studydocs.manager.service.filemanager.FileManagerAccessService;
+import com.studydocs.manager.service.filemanager.FileManagerEventService;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -40,10 +39,7 @@ public class DeleteDocumentUseCase {
     }
 
     void softDeleteDocument(Document document, User actor, Long deletedRootFolderId, boolean emitEvent) {
-        document.setDeletedAt(LocalDateTime.now());
-        document.setDeletedBy(actor);
-        document.setDeletedRootFolderId(deletedRootFolderId);
-        document.setStatus(DocumentStatus.DELETED);
+        document.markDeleted(actor, deletedRootFolderId, LocalDateTime.now());
         documentRepository.save(document);
 
         if (emitEvent) {

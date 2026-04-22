@@ -138,6 +138,23 @@ public class Document {
         normalizedDisplayName = normalizeDisplayName(displayName);
     }
 
+    public void markDeleted(User actor, Long deletedRootFolderId, LocalDateTime deletedTime) {
+        this.deletedAt = deletedTime != null ? deletedTime : LocalDateTime.now();
+        this.deletedBy = actor;
+        this.deletedRootFolderId = deletedRootFolderId;
+        this.status = DocumentStatus.DELETED;
+    }
+
+    public void restoreFromTrash(String restoredDisplayName) {
+        this.deletedAt = null;
+        this.deletedBy = null;
+        this.deletedRootFolderId = null;
+        this.status = DocumentStatus.DRAFT;
+        if (restoredDisplayName != null) {
+            this.displayName = restoredDisplayName;
+        }
+    }
+
     // Getters and Setters
     public Long getId() {
         return id;

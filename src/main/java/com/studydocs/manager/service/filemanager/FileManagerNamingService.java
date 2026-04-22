@@ -1,4 +1,4 @@
-package com.studydocs.manager.service.file;
+package com.studydocs.manager.service.filemanager;
 
 import org.springframework.stereotype.Service;
 

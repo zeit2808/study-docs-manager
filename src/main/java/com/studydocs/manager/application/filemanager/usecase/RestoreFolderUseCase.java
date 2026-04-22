@@ -3,17 +3,17 @@ package com.studydocs.manager.application.filemanager.usecase;
 import com.studydocs.manager.entity.Document;
 import com.studydocs.manager.entity.DocumentAsset;
 import com.studydocs.manager.entity.Folder;
-import com.studydocs.manager.enums.DocumentStatus;
 import com.studydocs.manager.exception.BadRequestException;
 import com.studydocs.manager.repository.DocumentAssetRepository;
 import com.studydocs.manager.repository.DocumentRepository;
 import com.studydocs.manager.repository.FolderRepository;
-import com.studydocs.manager.service.file.FileManagerAccessService;
-import com.studydocs.manager.service.file.FileManagerAssetStateService;
-import com.studydocs.manager.service.file.FileManagerNamePolicy;
-import com.studydocs.manager.service.file.FileManagerNamespaceService;
-import com.studydocs.manager.service.file.FileManagerNamingService;
-import com.studydocs.manager.service.file.FileManagerTreeService;
+import com.studydocs.manager.service.filemanager.FileManagerAccessService;
+import com.studydocs.manager.service.filemanager.FileManagerAssetStateService;
+import com.studydocs.manager.service.filemanager.FileManagerNamePolicy;
+import com.studydocs.manager.service.filemanager.FileManagerNamespaceService;
+import com.studydocs.manager.service.filemanager.FileManagerNamingService;
+import com.studydocs.manager.service.filemanager.FileManagerTreeService;
+import com.studydocs.manager.service.folder.FolderEventService;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -36,6 +36,7 @@ public class RestoreFolderUseCase {
     private final FileManagerAccessService fileManagerAccessService;
     private final FileManagerAssetStateService fileManagerAssetStateService;
     private final FileManagerNamingService fileManagerNamingService;
+    private final FolderEventService folderEventService;
 
     public RestoreFolderUseCase(
             FolderRepository folderRepository,
@@ -46,7 +47,8 @@ public class RestoreFolderUseCase {
             FileManagerNamespaceService fileManagerNamespaceService,
             FileManagerAccessService fileManagerAccessService,
             FileManagerAssetStateService fileManagerAssetStateService,
-            FileManagerNamingService fileManagerNamingService) {
+            FileManagerNamingService fileManagerNamingService,
+            FolderEventService folderEventService) {
         this.folderRepository = folderRepository;
         this.documentRepository = documentRepository;
         this.documentAssetRepository = documentAssetRepository;
@@ -56,6 +58,7 @@ public class RestoreFolderUseCase {
         this.fileManagerAccessService = fileManagerAccessService;
         this.fileManagerAssetStateService = fileManagerAssetStateService;
         this.fileManagerNamingService = fileManagerNamingService;
+        this.folderEventService = folderEventService;
     }
 
     public Folder execute(Long id) {
@@ -94,25 +97,21 @@ public class RestoreFolderUseCase {
 
         foldersToRestore.sort(Comparator.comparingInt(fileManagerTreeService::folderDepth));
         for (Folder folder : foldersToRestore) {
-            folder.setDeletedAt(null);
-            folder.setDeletedBy(null);
-            folder.setDeletedRootFolderId(null);
+            folder.restoreFromTrash();
         }
 
         for (Document document : documentsToRestore) {
             DocumentAsset asset = fileManagerAssetStateService.resolveAsset(document);
-            document.setDeletedAt(null);
-            document.setDeletedBy(null);
-            document.setDeletedRootFolderId(null);
-            document.setStatus(DocumentStatus.DRAFT);
-            document.setDisplayName(fileManagerNamingService.resolveDocumentDisplayName(
+            String restoredDisplayName = fileManagerNamingService.resolveDocumentDisplayName(
                     document.getDisplayName(),
                     asset != null ? asset.getFileName() : null,
-                    document.getTitle()));
+                    document.getTitle());
+            document.restoreFromTrash(restoredDisplayName);
         }
 
         folderRepository.saveAll(foldersToRestore);
         documentRepository.saveAll(documentsToRestore);
+        folderEventService.logRestored(root);
         return root;
     }
 

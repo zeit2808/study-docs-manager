@@ -15,6 +15,7 @@ import com.studydocs.manager.enums.DocumentStatus;
 import com.studydocs.manager.enums.DocumentVisibility;
 import com.studydocs.manager.enums.SortOption;
 import com.studydocs.manager.enums.SortOrder;
+import com.studydocs.manager.exception.ServiceUnavailableException;
 import com.studydocs.manager.storage.StorageProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -90,7 +91,10 @@ public class DocumentSearchService {
             return response;
         } catch (Exception e) {
             logger.error("Search failed: {}", e.getMessage(), e);
-            throw new RuntimeException("Search failed: " + e.getMessage(), e);
+            throw new ServiceUnavailableException(
+                    "Search service is temporarily unavailable",
+                    "SEARCH_FAILED",
+                    "query");
         }
     }
 

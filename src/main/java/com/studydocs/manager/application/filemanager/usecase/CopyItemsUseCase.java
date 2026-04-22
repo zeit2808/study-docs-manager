@@ -20,12 +20,13 @@ import com.studydocs.manager.exception.ServiceUnavailableException;
 import com.studydocs.manager.repository.DocumentAssetRepository;
 import com.studydocs.manager.repository.DocumentRepository;
 import com.studydocs.manager.repository.FolderRepository;
-import com.studydocs.manager.service.file.FileManagerAssetStateService;
-import com.studydocs.manager.service.file.FileManagerEventService;
-import com.studydocs.manager.service.file.FileManagerNamePolicy;
-import com.studydocs.manager.service.file.FileManagerNamespaceService;
-import com.studydocs.manager.service.file.FileManagerResponseFactory;
-import com.studydocs.manager.service.file.FileManagerSelection;
+import com.studydocs.manager.service.filemanager.FileManagerAssetStateService;
+import com.studydocs.manager.service.filemanager.FileManagerEventService;
+import com.studydocs.manager.service.filemanager.FileManagerNamePolicy;
+import com.studydocs.manager.service.filemanager.FileManagerNamespaceService;
+import com.studydocs.manager.service.filemanager.FileManagerResponseFactory;
+import com.studydocs.manager.service.filemanager.FileManagerSelection;
+import com.studydocs.manager.service.folder.FolderEventService;
 import com.studydocs.manager.storage.StorageProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,6 +56,7 @@ public class CopyItemsUseCase {
     private final FileManagerAssetStateService fileManagerAssetStateService;
     private final FileManagerEventService fileManagerEventService;
     private final FileManagerResponseFactory fileManagerResponseFactory;
+    private final FolderEventService folderEventService;
 
     public CopyItemsUseCase(
             FolderRepository folderRepository,
@@ -66,7 +68,8 @@ public class CopyItemsUseCase {
             StorageProperties storageProperties,
             FileManagerAssetStateService fileManagerAssetStateService,
             FileManagerEventService fileManagerEventService,
-            FileManagerResponseFactory fileManagerResponseFactory) {
+            FileManagerResponseFactory fileManagerResponseFactory,
+            FolderEventService folderEventService) {
         this.folderRepository = folderRepository;
         this.documentRepository = documentRepository;
         this.documentAssetRepository = documentAssetRepository;
@@ -77,6 +80,7 @@ public class CopyItemsUseCase {
         this.fileManagerAssetStateService = fileManagerAssetStateService;
         this.fileManagerEventService = fileManagerEventService;
         this.fileManagerResponseFactory = fileManagerResponseFactory;
+        this.folderEventService = folderEventService;
     }
 
     public FileManagerPasteResponse execute(List<FileManagerSelection> selections, Folder targetFolder, User actor) {
@@ -113,7 +117,10 @@ public class CopyItemsUseCase {
                             copiedRoot.getId(),
                             copiedRoot.getName(),
                             targetFolder));
+                    // audit_logs: admin oversight (actor, targetFolder, IP)
                     fileManagerEventService.logFolderAudit(actor, copiedRoot, AuditAction.COPY_FOLDER, targetFolder);
+                    // folder_events: history timeline của folder bản sao
+                    folderEventService.logCopied(copiedRoot, plan.selection().folder());
                     continue;
                 }
 

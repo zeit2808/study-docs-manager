@@ -12,8 +12,8 @@ import com.studydocs.manager.exception.ForbiddenException;
 import com.studydocs.manager.exception.NotFoundException;
 import com.studydocs.manager.repository.DocumentRepository;
 import com.studydocs.manager.repository.FolderRepository;
-import com.studydocs.manager.service.file.FileManagerAccessService;
-import com.studydocs.manager.service.file.FileManagerSelectionResolver;
+import com.studydocs.manager.service.filemanager.FileManagerAccessService;
+import com.studydocs.manager.service.filemanager.FileManagerSelectionResolver;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;

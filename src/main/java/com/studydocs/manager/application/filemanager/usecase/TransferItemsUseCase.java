@@ -7,10 +7,10 @@ import com.studydocs.manager.entity.User;
 import com.studydocs.manager.enums.ClipboardOperation;
 import com.studydocs.manager.enums.FileManagerItemType;
 import com.studydocs.manager.exception.BadRequestException;
-import com.studydocs.manager.service.file.FileManagerAccessService;
-import com.studydocs.manager.service.file.FileManagerSelection;
-import com.studydocs.manager.service.file.FileManagerSelectionResolver;
-import com.studydocs.manager.service.file.FileManagerTreeService;
+import com.studydocs.manager.service.filemanager.FileManagerAccessService;
+import com.studydocs.manager.service.filemanager.FileManagerSelection;
+import com.studydocs.manager.service.filemanager.FileManagerSelectionResolver;
+import com.studydocs.manager.service.filemanager.FileManagerTreeService;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 

@@ -3,15 +3,14 @@ package com.studydocs.manager.application.filemanager.usecase;
 import com.studydocs.manager.entity.Document;
 import com.studydocs.manager.entity.DocumentAsset;
 import com.studydocs.manager.enums.DocumentEventType;
-import com.studydocs.manager.enums.DocumentStatus;
 import com.studydocs.manager.exception.BadRequestException;
 import com.studydocs.manager.exception.ForbiddenException;
 import com.studydocs.manager.exception.NotFoundException;
 import com.studydocs.manager.repository.DocumentRepository;
-import com.studydocs.manager.service.file.FileManagerAccessService;
-import com.studydocs.manager.service.file.FileManagerAssetStateService;
-import com.studydocs.manager.service.file.FileManagerEventService;
-import com.studydocs.manager.service.file.FileManagerNamingService;
+import com.studydocs.manager.service.filemanager.FileManagerAccessService;
+import com.studydocs.manager.service.filemanager.FileManagerAssetStateService;
+import com.studydocs.manager.service.filemanager.FileManagerEventService;
+import com.studydocs.manager.service.filemanager.FileManagerNamingService;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -72,11 +71,7 @@ public class RestoreDocumentUseCase {
                 restoredDisplayName,
                 null);
 
-        document.setDeletedAt(null);
-        document.setDeletedBy(null);
-        document.setDeletedRootFolderId(null);
-        document.setStatus(DocumentStatus.DRAFT);
-        document.setDisplayName(restoredDisplayName);
+        document.restoreFromTrash(restoredDisplayName);
 
         Document saved = documentRepository.save(document);
         fileManagerEventService.logDocumentEvent(saved, DocumentEventType.RESTORED, "Document restored");
