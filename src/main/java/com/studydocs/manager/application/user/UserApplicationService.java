@@ -1,14 +1,15 @@
 package com.studydocs.manager.application.user;
 
+import com.studydocs.manager.application.user.usecase.AvatarUseCase;
+import com.studydocs.manager.application.user.usecase.ChangePasswordUseCase;
+import com.studydocs.manager.application.user.usecase.ProfileUseCase;
+import com.studydocs.manager.application.user.usecase.RegisterByAdminUseCase;
+import com.studydocs.manager.application.user.usecase.UserAdminUseCase;
 import com.studydocs.manager.dto.auth.AdminRegisterRequest;
+import com.studydocs.manager.dto.auth.ChangePasswordRequest;
 import com.studydocs.manager.dto.user.ProfileUpdateRequest;
 import com.studydocs.manager.dto.user.UserResponse;
 import com.studydocs.manager.dto.user.UserUpdateRequest;
-import com.studydocs.manager.application.user.usecase.AvatarUseCase;
-import com.studydocs.manager.application.user.usecase.ProfileUseCase;
-import com.studydocs.manager.application.user.usecase.UserAdminUseCase;
-import com.studydocs.manager.service.auth.AuthService;
-import com.studydocs.manager.service.user.UserResponseMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -20,24 +21,24 @@ public class UserApplicationService {
     private final UserAdminUseCase userAdminUseCase;
     private final ProfileUseCase profileUseCase;
     private final AvatarUseCase avatarUseCase;
-    private final AuthService authService;
-    private final UserResponseMapper userResponseMapper;
+    private final RegisterByAdminUseCase registerByAdminUseCase;
+    private final ChangePasswordUseCase changePasswordUseCase;
 
     public UserApplicationService(
             UserAdminUseCase userAdminUseCase,
             ProfileUseCase profileUseCase,
             AvatarUseCase avatarUseCase,
-            AuthService authService,
-            UserResponseMapper userResponseMapper) {
+            RegisterByAdminUseCase registerByAdminUseCase,
+            ChangePasswordUseCase changePasswordUseCase) {
         this.userAdminUseCase = userAdminUseCase;
         this.profileUseCase = profileUseCase;
         this.avatarUseCase = avatarUseCase;
-        this.authService = authService;
-        this.userResponseMapper = userResponseMapper;
+        this.registerByAdminUseCase = registerByAdminUseCase;
+        this.changePasswordUseCase = changePasswordUseCase;
     }
 
     public UserResponse registerUserByAdmin(AdminRegisterRequest request) {
-        return userResponseMapper.toResponse(authService.registerByAdmin(request));
+        return registerByAdminUseCase.execute(request);
     }
 
     public List<UserResponse> searchUsers(String keyword, int limit) {
@@ -74,5 +75,9 @@ public class UserApplicationService {
 
     public UserResponse updateAvatar(String username, MultipartFile file) {
         return avatarUseCase.updateAvatar(username, file);
+    }
+
+    public void changePassword(ChangePasswordRequest request) {
+        changePasswordUseCase.execute(request);
     }
 }
