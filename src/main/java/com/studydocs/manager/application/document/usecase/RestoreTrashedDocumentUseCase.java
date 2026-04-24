@@ -9,14 +9,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
-public class RestoreDocumentCommandUseCase {
+public class RestoreTrashedDocumentUseCase {
 
-    private static final Logger logger = LoggerFactory.getLogger(RestoreDocumentCommandUseCase.class);
+    private static final Logger logger = LoggerFactory.getLogger(RestoreTrashedDocumentUseCase.class);
 
     private final FileManagerApplicationService fileManagerApplicationService;
     private final FileManagerResponseMapper fileManagerResponseMapper;
 
-    public RestoreDocumentCommandUseCase(
+    public RestoreTrashedDocumentUseCase(
             FileManagerApplicationService fileManagerApplicationService,
             FileManagerResponseMapper fileManagerResponseMapper) {
         this.fileManagerApplicationService = fileManagerApplicationService;

@@ -4,7 +4,6 @@ import com.studydocs.manager.dto.document.DocumentResponse;
 import com.studydocs.manager.dto.document.DocumentUpdateRequest;
 import com.studydocs.manager.entity.Document;
 import com.studydocs.manager.entity.DocumentAsset;
-import com.studydocs.manager.entity.Folder;
 import com.studydocs.manager.entity.User;
 import com.studydocs.manager.enums.DocumentEventType;
 import com.studydocs.manager.enums.DocumentStatus;
@@ -14,7 +13,6 @@ import com.studydocs.manager.exception.NotFoundException;
 import com.studydocs.manager.repository.DocumentRepository;
 import com.studydocs.manager.repository.UserRepository;
 import com.studydocs.manager.service.document.DocumentActivityService;
-import com.studydocs.manager.service.document.DocumentAssetService;
 import com.studydocs.manager.service.document.DocumentPermissionService;
 import com.studydocs.manager.service.document.DocumentTaxonomyService;
 import com.studydocs.manager.service.filemanager.FileManagerNamePolicy;
@@ -25,6 +23,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+/**
+ * Handles metadata-only updates for a document.
+ *
+ * <p>Allowed updates: title, description, displayName, status, visibility,
+ * isFeatured, language, subjects, tags.
+ *
+ * <p><b>Not allowed via this UseCase:</b>
+ * <ul>
+ *   <li>Moving to a different folder → use {@code MoveItemsUseCase}</li>
+ *   <li>Replacing the underlying file asset → use the file-replacement endpoint</li>
+ * </ul>
+ */
 @Service
 public class UpdateDocumentUseCase {
 
@@ -33,7 +43,6 @@ public class UpdateDocumentUseCase {
     private final DocumentRepository documentRepository;
     private final UserRepository userRepository;
     private final DocumentPermissionService permissionService;
-    private final DocumentAssetService assetService;
     private final DocumentTaxonomyService taxonomyService;
     private final DocumentActivityService activityService;
     private final FileManagerNamePolicy fileManagerNamePolicy;
@@ -44,7 +53,6 @@ public class UpdateDocumentUseCase {
             DocumentRepository documentRepository,
             UserRepository userRepository,
             DocumentPermissionService permissionService,
-            DocumentAssetService assetService,
             DocumentTaxonomyService taxonomyService,
             DocumentActivityService activityService,
             FileManagerNamePolicy fileManagerNamePolicy,
@@ -53,7 +61,6 @@ public class UpdateDocumentUseCase {
         this.documentRepository = documentRepository;
         this.userRepository = userRepository;
         this.permissionService = permissionService;
-        this.assetService = assetService;
         this.taxonomyService = taxonomyService;
         this.activityService = activityService;
         this.fileManagerNamePolicy = fileManagerNamePolicy;
@@ -71,44 +78,33 @@ public class UpdateDocumentUseCase {
 
         User currentUser = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new NotFoundException("User not found", "USER_NOT_FOUND", null));
-        DocumentAsset currentAsset = fileManagerResponseMapper.resolveAsset(document);
-        String currentDisplayName = fileManagerNamePolicy.requireDocumentName(
-                document.getDisplayName(),
-                currentAsset != null ? currentAsset.getFileName() : null,
-                document.getTitle());
-        Folder oldFolder = document.getFolder();
-        Folder newFolder = oldFolder;
 
-        if (request.isFolderIdProvided()) {
-            newFolder = request.getFolderId() != null
-                    ? permissionService.validateFolderOwnership(request.getFolderId(), currentUserId)
-                    : null;
-        }
+        // Resolve display name using the current asset's fileName as fallback
+        DocumentAsset currentAsset = fileManagerResponseMapper.resolveAsset(document);
+        String currentFileName = currentAsset != null ? currentAsset.getFileName() : null;
+        String currentDisplayName = fileManagerNamePolicy.requireDocumentName(
+                document.getDisplayName(), currentFileName, document.getTitle());
 
         String nextTitle = request.getTitle() != null ? request.getTitle() : document.getTitle();
-        String nextFileName = request.getFileName() != null
-                ? request.getFileName()
-                : currentAsset != null ? currentAsset.getFileName() : null;
-        String requestedDisplayName = request.getDisplayName() != null ? request.getDisplayName() : document.getDisplayName();
-        String resolvedDisplayName = fileManagerNamePolicy.requireDocumentName(requestedDisplayName, nextFileName, nextTitle);
-        boolean folderChanged = !sameFolder(oldFolder, newFolder);
+        String requestedDisplayName = request.getDisplayName() != null
+                ? request.getDisplayName()
+                : document.getDisplayName();
+        String resolvedDisplayName = fileManagerNamePolicy.requireDocumentName(
+                requestedDisplayName, currentFileName, nextTitle);
+
         boolean nameChanged = !resolvedDisplayName.equals(currentDisplayName);
-        if (folderChanged || nameChanged) {
+        if (nameChanged) {
             fileManagerNamespaceService.ensureDocumentNameAvailable(
                     currentUserId,
-                    newFolder != null ? newFolder.getId() : null,
+                    document.getFolder() != null ? document.getFolder().getId() : null,
                     resolvedDisplayName,
                     document.getId());
         }
 
-        applyFieldUpdates(document, request, resolvedDisplayName, newFolder);
+        applyFieldUpdates(document, request, resolvedDisplayName);
         document.setUpdatedBy(currentUser);
         Document saved = documentRepository.save(document);
 
-        if (assetService.hasAssetChanges(request)) {
-            assetService.upsertAsset(saved, request.getObjectName(), request.getFileName(),
-                    request.getFileSize(), request.getFileType(), request.getThumbnailObjectName());
-        }
         if (request.getSubjectIds() != null) {
             taxonomyService.replaceSubjects(saved, request.getSubjectIds());
         }
@@ -124,7 +120,7 @@ public class UpdateDocumentUseCase {
     }
 
     private void applyFieldUpdates(Document document, DocumentUpdateRequest request,
-            String resolvedDisplayName, Folder newFolder) {
+            String resolvedDisplayName) {
         if (request.getTitle() != null) {
             document.setTitle(request.getTitle());
         }
@@ -139,7 +135,10 @@ public class UpdateDocumentUseCase {
             try {
                 document.setStatus(DocumentStatus.valueOf(request.getStatus()));
             } catch (IllegalArgumentException e) {
-                throw new BadRequestException("Invalid status: " + request.getStatus(), "INVALID_DOCUMENT_STATUS", "status");
+                throw new BadRequestException(
+                        "Invalid status: " + request.getStatus(),
+                        "INVALID_DOCUMENT_STATUS",
+                        "status");
             }
         }
         if (request.getVisibility() != null) {
@@ -155,18 +154,5 @@ public class UpdateDocumentUseCase {
         if (request.getIsFeatured() != null) {
             document.setIsFeatured(request.getIsFeatured());
         }
-        if (request.isFolderIdProvided()) {
-            document.setFolder(newFolder);
-        }
-    }
-
-    private boolean sameFolder(Folder left, Folder right) {
-        if (left == null && right == null) {
-            return true;
-        }
-        if (left == null || right == null) {
-            return false;
-        }
-        return left.getId().equals(right.getId());
     }
 }

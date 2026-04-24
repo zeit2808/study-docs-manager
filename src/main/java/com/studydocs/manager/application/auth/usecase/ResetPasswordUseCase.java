@@ -5,7 +5,7 @@ import com.studydocs.manager.service.auth.PasswordResetService;
 import org.springframework.stereotype.Service;
 
 /**
- * Orchestrates password reset flow: validate OTP → update password → mark token used.
+ * Orchestrates password reset flow: validate OTP → update password → clear old reset tokens.
  * Business rules (expiry, OTP match) are encapsulated in PasswordResetService.
  */
 @Service

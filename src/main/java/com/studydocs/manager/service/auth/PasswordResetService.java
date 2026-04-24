@@ -58,7 +58,7 @@ public class PasswordResetService {
         User user = optionalUser.get();
 
         Optional<PasswordResetToken> activeToken =
-                passwordResetTokenRepository.findTop1ByUserAndUsedFalseAndExpiredAtAfter(
+                passwordResetTokenRepository.findTop1ByUserAndExpiredAtAfterOrderByCreatedAtDesc(
                         user, LocalDateTime.now());
 
         if (activeToken.isPresent()) {
@@ -71,7 +71,7 @@ public class PasswordResetService {
                     "OTP_COOLDOWN",
                     null);
         }
-
+        passwordResetTokenRepository.deleteByUser(user);
         String otp = generateOtp();
         LocalDateTime expiredAt = LocalDateTime.now().plusMinutes(5);
         passwordResetTokenRepository.save(new PasswordResetToken(user, otp, expiredAt));
@@ -94,22 +94,16 @@ public class PasswordResetService {
                 .orElseThrow(() -> new NotFoundException("User not found", "USER_NOT_FOUND", "email"));
 
         PasswordResetToken token = passwordResetTokenRepository
-                .findTop1ByUserAndUsedFalseOrderByCreatedAtDesc(user)
-                .orElseThrow(() -> new NotFoundException("No OTP request found", "OTP_REQUEST_NOT_FOUND", "otp"));
+                .findTop1ByUserAndOtpOrderByCreatedAtDesc(user, request.getOtp())
+                .orElseThrow(() -> new BadRequestException("Invalid OTP", "INVALID_OTP", "otp"));
 
         if (token.getExpiredAt().isBefore(LocalDateTime.now())) {
             throw new BadRequestException("OTP expired", "OTP_EXPIRED", "otp");
         }
 
-        if (!token.getOtp().equals(request.getOtp())) {
-            throw new BadRequestException("Invalid OTP", "INVALID_OTP", "otp");
-        }
-
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
-
-        token.setUsed(true);
-        passwordResetTokenRepository.save(token);
+        passwordResetTokenRepository.deleteByUser(user);
     }
 
     private String generateOtp() {

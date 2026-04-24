@@ -1,6 +1,6 @@
 package com.studydocs.manager.service.document;
 
-import com.studydocs.manager.dto.document.DocumentUpdateRequest;
+
 import com.studydocs.manager.entity.Document;
 import com.studydocs.manager.entity.DocumentAsset;
 import com.studydocs.manager.repository.DocumentAssetRepository;
@@ -41,14 +41,4 @@ public class DocumentAssetService {
         document.setAsset(savedAsset);
     }
 
-    /**
-     * Checks whether an update request contains any asset field changes.
-     */
-    public boolean hasAssetChanges(DocumentUpdateRequest request) {
-        return request.getObjectName() != null
-                || request.getFileName() != null
-                || request.getFileSize() != null
-                || request.getFileType() != null
-                || request.getThumbnailObjectName() != null;
-    }
 }

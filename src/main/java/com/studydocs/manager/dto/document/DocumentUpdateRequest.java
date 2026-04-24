@@ -4,7 +4,16 @@ import jakarta.validation.constraints.Size;
 
 import java.util.Set;
 
+/**
+ * Request DTO for updating document metadata.
+ *
+ * <p><b>File asset fields</b> (objectName, fileName, fileSize, fileType,
+ * thumbnailObjectName, content) are intentionally excluded — they are set by
+ * the upload/processing pipeline and are not manually editable. To replace
+ * the underlying file, use the dedicated file-replacement endpoint.
+ */
 public class DocumentUpdateRequest {
+
     @Size(max = 500, message = "Title must not exceed 500 characters")
     private String title;
 
@@ -14,29 +23,13 @@ public class DocumentUpdateRequest {
     @Size(max = 500, message = "Display name must not exceed 500 characters")
     private String displayName;
 
-    private String content;
-
-    private String objectName;
-
-    private String fileName;
-
-    private Long fileSize;
-
-    private String fileType;
-
-    private String thumbnailObjectName;
-
-    private String status; // DRAFT, PUBLISHED, ARCHIVED
+    private String status;     // DRAFT, PUBLISHED, ARCHIVED
 
     private String visibility; // PRIVATE, PUBLIC, SHARED
 
     private Boolean isFeatured;
 
     private String language;
-
-    private Long folderId;
-
-    private boolean folderIdProvided;
 
     private Set<Long> subjectIds;
 
@@ -65,54 +58,6 @@ public class DocumentUpdateRequest {
 
     public void setDisplayName(String displayName) {
         this.displayName = displayName;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-    public void setContent(String content) {
-        this.content = content;
-    }
-
-    public String getObjectName() {
-        return objectName;
-    }
-
-    public void setObjectName(String objectName) {
-        this.objectName = objectName;
-    }
-
-    public String getFileName() {
-        return fileName;
-    }
-
-    public void setFileName(String fileName) {
-        this.fileName = fileName;
-    }
-
-    public Long getFileSize() {
-        return fileSize;
-    }
-
-    public void setFileSize(Long fileSize) {
-        this.fileSize = fileSize;
-    }
-
-    public String getFileType() {
-        return fileType;
-    }
-
-    public void setFileType(String fileType) {
-        this.fileType = fileType;
-    }
-
-    public String getThumbnailObjectName() {
-        return thumbnailObjectName;
-    }
-
-    public void setThumbnailObjectName(String thumbnailObjectName) {
-        this.thumbnailObjectName = thumbnailObjectName;
     }
 
     public String getStatus() {
@@ -145,19 +90,6 @@ public class DocumentUpdateRequest {
 
     public void setLanguage(String language) {
         this.language = language;
-    }
-
-    public Long getFolderId() {
-        return folderId;
-    }
-
-    public void setFolderId(Long folderId) {
-        this.folderId = folderId;
-        this.folderIdProvided = true;
-    }
-
-    public boolean isFolderIdProvided() {
-        return folderIdProvided;
     }
 
     public Set<Long> getSubjectIds() {

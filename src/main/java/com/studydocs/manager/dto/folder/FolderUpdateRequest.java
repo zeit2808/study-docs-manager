@@ -5,9 +5,8 @@ import jakarta.validation.constraints.Size;
 public class FolderUpdateRequest {
     @Size(max = 200)
     private String name;
-    private Long parentId;   // null = move to root
+
     private Integer sortOrder;
-    private boolean parentIdProvided;
 
     public String getName() {
         return name;
@@ -17,18 +16,7 @@ public class FolderUpdateRequest {
         this.name = name;
     }
 
-    public Long getParentId() {
-        return parentId;
-    }
 
-    public void setParentId(Long parentId) {
-        this.parentId = parentId;
-        this.parentIdProvided = true;
-    }
-
-    public boolean isParentIdProvided() {
-        return parentIdProvided;
-    }
 
     public Integer getSortOrder() {
         return sortOrder;

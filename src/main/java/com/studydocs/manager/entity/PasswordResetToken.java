@@ -6,7 +6,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "password_reset_tokens", indexes = {
-        @Index(name = "idx_prt_user_used", columnList = "user_id, used"),
+        @Index(name = "idx_prt_user_created", columnList = "user_id, created_at"),
+        @Index(name = "idx_prt_user_otp", columnList = "user_id, otp"),
         @Index(name = "idx_prt_expiry_time", columnList = "expiry_time")
 })
 public class PasswordResetToken {
@@ -23,9 +24,6 @@ public class PasswordResetToken {
 
     @Column(name = "expiry_time", nullable = false)
     private LocalDateTime expiredAt;
-
-    @Column(name = "used", nullable = false)
-    private Boolean used = false;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -76,14 +74,6 @@ public class PasswordResetToken {
 
     public void setExpiredAt(LocalDateTime expiredAt) {
         this.expiredAt = expiredAt;
-    }
-
-    public Boolean getUsed() {
-        return used;
-    }
-
-    public void setUsed(Boolean used) {
-        this.used = used;
     }
 
     public LocalDateTime getCreatedAt() {

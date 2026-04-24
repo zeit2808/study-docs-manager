@@ -4,7 +4,7 @@ import com.studydocs.manager.application.document.usecase.CreateDocumentUseCase;
 import com.studydocs.manager.application.document.usecase.DocumentQueryUseCase;
 import com.studydocs.manager.application.document.usecase.EmptyTrashDocumentsUseCase;
 import com.studydocs.manager.application.document.usecase.PermanentDeleteDocumentUseCase;
-import com.studydocs.manager.application.document.usecase.RestoreDocumentCommandUseCase;
+import com.studydocs.manager.application.document.usecase.RestoreTrashedDocumentUseCase;
 import com.studydocs.manager.application.document.usecase.SoftDeleteDocumentUseCase;
 import com.studydocs.manager.application.document.usecase.UpdateDocumentUseCase;
 import com.studydocs.manager.dto.document.DocumentCreateRequest;
@@ -20,7 +20,7 @@ public class DocumentApplicationService {
     private final CreateDocumentUseCase createDocumentUseCase;
     private final UpdateDocumentUseCase updateDocumentUseCase;
     private final SoftDeleteDocumentUseCase softDeleteDocumentUseCase;
-    private final RestoreDocumentCommandUseCase restoreDocumentUseCase;
+    private final RestoreTrashedDocumentUseCase restoreDocumentUseCase;
     private final PermanentDeleteDocumentUseCase permanentDeleteDocumentUseCase;
     private final EmptyTrashDocumentsUseCase emptyTrashDocumentsUseCase;
     private final DocumentQueryUseCase documentQueryUseCase;
@@ -29,7 +29,7 @@ public class DocumentApplicationService {
             CreateDocumentUseCase createDocumentUseCase,
             UpdateDocumentUseCase updateDocumentUseCase,
             SoftDeleteDocumentUseCase softDeleteDocumentUseCase,
-            RestoreDocumentCommandUseCase restoreDocumentUseCase,
+            RestoreTrashedDocumentUseCase restoreDocumentUseCase,
             PermanentDeleteDocumentUseCase permanentDeleteDocumentUseCase,
             EmptyTrashDocumentsUseCase emptyTrashDocumentsUseCase,
             DocumentQueryUseCase documentQueryUseCase) {
