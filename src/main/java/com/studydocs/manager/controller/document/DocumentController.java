@@ -3,6 +3,7 @@ package com.studydocs.manager.controller.document;
 import com.studydocs.manager.application.document.DocumentApplicationService;
 import com.studydocs.manager.dto.common.SuccessResponse;
 import com.studydocs.manager.dto.document.DocumentCreateRequest;
+import com.studydocs.manager.dto.document.DocumentCreateResponse;
 import com.studydocs.manager.dto.document.DocumentResponse;
 import com.studydocs.manager.dto.document.DocumentUpdateRequest;
 import com.studydocs.manager.exception.NotFoundException;
@@ -42,8 +43,8 @@ public class DocumentController {
     @PostMapping
     @Operation(summary = "Create document", description = "Create a new document")
     @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
-    public ResponseEntity<DocumentResponse> createDocument(@Valid @RequestBody DocumentCreateRequest request) {
-        DocumentResponse response = documentApplicationService.createDocument(request);
+    public ResponseEntity<DocumentCreateResponse> createDocument(@Valid @RequestBody DocumentCreateRequest request) {
+        DocumentCreateResponse response = documentApplicationService.createDocument(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -145,19 +146,4 @@ public class DocumentController {
         return ResponseEntity.ok(documentApplicationService.getMyTrash(pageable));
     }
 
-    @DeleteMapping("/trash/{id}")
-    @Operation(summary = "Permanently delete document", description = "Hard-delete a single document from trash. File will be cleaned by background job.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
-    public ResponseEntity<Void> permanentDeleteDocument(@PathVariable Long id) {
-        documentApplicationService.permanentDeleteDocument(id);
-        return ResponseEntity.noContent().build();
-    }
-
-    @DeleteMapping("/trash")
-    @Operation(summary = "Empty trash", description = "Hard-delete all documents in trash for the current user.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
-    public ResponseEntity<Void> emptyTrash() {
-        documentApplicationService.emptyTrash();
-        return ResponseEntity.noContent().build();
-    }
 }

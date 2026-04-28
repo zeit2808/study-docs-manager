@@ -1,5 +1,6 @@
 package com.studydocs.manager.service.filemanager;
 
+import com.studydocs.manager.dto.document.DocumentCreateResponse;
 import com.studydocs.manager.dto.document.DocumentResponse;
 import com.studydocs.manager.dto.folder.FolderResponse;
 import com.studydocs.manager.entity.Document;
@@ -86,6 +87,44 @@ public class FileManagerResponseMapper {
         if (document.getUpdatedBy() != null) {
             response.setUpdatedByUsername(document.getUpdatedBy().getUsername());
         }
+        return response;
+    }
+
+    public DocumentCreateResponse toDocumentCreateResponse(Document document) {
+        DocumentCreateResponse response = new DocumentCreateResponse();
+        response.setId(document.getId());
+        response.setTitle(document.getTitle());
+        response.setDescription(document.getDescription());
+
+        DocumentAsset asset = resolveAsset(document);
+        String fileName = asset != null ? asset.getFileName() : null;
+        response.setDisplayName(fileManagerNamePolicy.requireDocumentName(
+                document.getDisplayName(),
+                fileName,
+                document.getTitle()));
+
+        if (asset != null) {
+            response.setObjectName(asset.getObjectName());
+            response.setFileName(asset.getFileName());
+            response.setFileSize(asset.getFileSize());
+            response.setFileType(asset.getFileType());
+        }
+
+        if (document.getFolder() != null) {
+            response.setFolderId(document.getFolder().getId());
+            response.setFolderName(document.getFolder().getName());
+        }
+
+        response.setStatus(document.getStatus().name());
+        response.setVisibility(document.getVisibility().name());
+        response.setLanguage(document.getLanguage());
+        response.setSubjects(document.getDocumentSubjects().stream()
+                .map(ds -> ds.getSubject().getName())
+                .collect(Collectors.toSet()));
+        response.setTags(document.getDocumentTags().stream()
+                .map(dt -> dt.getTag().getName())
+                .collect(Collectors.toSet()));
+        response.setCreatedAt(document.getCreatedAt());
         return response;
     }
 

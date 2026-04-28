@@ -33,6 +33,24 @@ public class FileManagerTreeService {
         return folders;
     }
 
+    public List<Folder> collectFolderSubtree(Folder root) {
+        List<Folder> folders = new ArrayList<>();
+        folders.add(root);
+
+        List<Folder> children = folderRepository.findByParentIdOrderBySortOrder(root.getId());
+        for (Folder child : children) {
+            folders.addAll(collectFolderSubtree(child));
+        }
+
+        return folders;
+    }
+
+    public List<Folder> collectDeletedFolderTree(Folder root) {
+        return collectFolderSubtree(root).stream()
+                .filter(folder -> folder.getDeletedAt() != null)
+                .toList();
+    }
+
     public int countActiveDocuments(List<Folder> folderTree) {
         return collectActiveDocuments(folderTree).size();
     }
@@ -47,6 +65,19 @@ public class FileManagerTreeService {
 
         return documentRepository.findAllByFolderIdIn(folderIds).stream()
                 .filter(document -> document.getDeletedAt() == null)
+                .toList();
+    }
+
+    public List<Document> collectDeletedDocuments(List<Folder> folderTree) {
+        List<Long> folderIds = folderTree.stream()
+                .map(Folder::getId)
+                .toList();
+        if (folderIds.isEmpty()) {
+            return List.of();
+        }
+
+        return documentRepository.findAllByFolderIdIn(folderIds).stream()
+                .filter(document -> document.getDeletedAt() != null)
                 .toList();
     }
 

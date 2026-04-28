@@ -50,6 +50,25 @@ public final class FileManagerNameUtils {
         return candidate;
     }
 
+    public static String buildIndexedName(String sourceName, int index) {
+        String safeSourceName = hasText(sourceName) ? sourceName.trim() : "Untitled";
+        int extensionIndex = extensionIndex(safeSourceName);
+        String baseName = extensionIndex >= 0 ? safeSourceName.substring(0, extensionIndex) : safeSourceName;
+        String extension = extensionIndex >= 0 ? safeSourceName.substring(extensionIndex) : "";
+        return baseName + " (" + index + ")" + extension;
+    }
+
+    public static String resolveIndexedName(String sourceName, Predicate<String> existsPredicate) {
+        String safeSourceName = hasText(sourceName) ? sourceName.trim() : "Untitled";
+        int index = 1;
+        String candidate = buildIndexedName(safeSourceName, index);
+        while (existsPredicate.test(candidate)) {
+            index++;
+            candidate = buildIndexedName(safeSourceName, index);
+        }
+        return candidate;
+    }
+
     private static int extensionIndex(String value) {
         int lastDot = value.lastIndexOf('.');
         return lastDot > 0 ? lastDot : -1;

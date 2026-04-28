@@ -13,15 +13,14 @@ import com.studydocs.manager.service.filemanager.FileManagerNamePolicy;
 import com.studydocs.manager.service.filemanager.FileManagerNamespaceService;
 import com.studydocs.manager.service.filemanager.FileManagerNamingService;
 import com.studydocs.manager.service.filemanager.FileManagerTreeService;
+import com.studydocs.manager.service.filemanager.FolderRestorePathService;
 import com.studydocs.manager.service.folder.FolderEventService;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -36,6 +35,7 @@ public class RestoreFolderUseCase {
     private final FileManagerAccessService fileManagerAccessService;
     private final FileManagerAssetStateService fileManagerAssetStateService;
     private final FileManagerNamingService fileManagerNamingService;
+    private final FolderRestorePathService folderRestorePathService;
     private final FolderEventService folderEventService;
 
     public RestoreFolderUseCase(
@@ -48,6 +48,7 @@ public class RestoreFolderUseCase {
             FileManagerAccessService fileManagerAccessService,
             FileManagerAssetStateService fileManagerAssetStateService,
             FileManagerNamingService fileManagerNamingService,
+            FolderRestorePathService folderRestorePathService,
             FolderEventService folderEventService) {
         this.folderRepository = folderRepository;
         this.documentRepository = documentRepository;
@@ -58,6 +59,7 @@ public class RestoreFolderUseCase {
         this.fileManagerAccessService = fileManagerAccessService;
         this.fileManagerAssetStateService = fileManagerAssetStateService;
         this.fileManagerNamingService = fileManagerNamingService;
+        this.folderRestorePathService = folderRestorePathService;
         this.folderEventService = folderEventService;
     }
 
@@ -65,31 +67,22 @@ public class RestoreFolderUseCase {
         Long userId = fileManagerAccessService.requireCurrentUserId();
         Folder root = fileManagerAccessService.findFolderForUser(id, userId);
 
-        if (root.getDeletedAt() == null) {
+        if (root.getParent() != null && root.getParent().getDeletedAt() != null) {
+            Folder restoredParent = folderRestorePathService.restoreDeletedAncestorChain(root.getParent(), userId);
+            root.setParent(restoredParent);
+        }
+
+        List<Folder> subtree = fileManagerTreeService.collectFolderSubtree(root);
+        List<Folder> foldersToRestore = subtree.stream()
+                .filter(folder -> folder.getDeletedAt() != null)
+                .collect(Collectors.toCollection(ArrayList::new));
+        List<Document> documentsToRestore = fileManagerTreeService.collectDeletedDocuments(subtree);
+
+        if (foldersToRestore.isEmpty() && documentsToRestore.isEmpty()) {
             throw new BadRequestException("Folder is not deleted", "FOLDER_NOT_DELETED", "id");
         }
 
-        Folder parent = root.getParent();
-        if (parent != null && parent.getDeletedAt() != null) {
-            throw new BadRequestException(
-                    "Parent folder is still in trash. Restore the parent folder first.",
-                    "PARENT_FOLDER_NOT_RESTORED",
-                    "id");
-        }
-
-        List<Folder> foldersToRestore = new ArrayList<>(folderRepository.findByUserIdAndDeletedRootFolderId(userId, root.getId()));
-        if (foldersToRestore.isEmpty()) {
-            foldersToRestore.add(root);
-        }
-
-        Set<Long> restoringFolderIds = foldersToRestore.stream()
-                .map(Folder::getId)
-                .collect(Collectors.toCollection(HashSet::new));
-
-        validateRestoreFolderConflicts(foldersToRestore, userId, restoringFolderIds);
-
-        List<Document> documentsToRestore = documentRepository.findByUserIdAndDeletedRootFolderId(userId, root.getId());
-        validateRestoredDocumentFolders(documentsToRestore, restoringFolderIds);
+        validateRestoreFolderConflicts(foldersToRestore, userId);
         validateRestoreDocumentConflicts(documentsToRestore, userId);
         ensureRestorableDocuments(
                 documentsToRestore,
@@ -111,20 +104,12 @@ public class RestoreFolderUseCase {
 
         folderRepository.saveAll(foldersToRestore);
         documentRepository.saveAll(documentsToRestore);
-        folderEventService.logRestored(root);
+        foldersToRestore.forEach(folderEventService::logRestored);
         return root;
     }
 
-    private void validateRestoreFolderConflicts(List<Folder> foldersToRestore, Long userId, Set<Long> restoringFolderIds) {
+    private void validateRestoreFolderConflicts(List<Folder> foldersToRestore, Long userId) {
         for (Folder folder : foldersToRestore) {
-            Folder parent = folder.getParent();
-            if (parent != null && parent.getDeletedAt() != null && !restoringFolderIds.contains(parent.getId())) {
-                throw new BadRequestException(
-                        "Parent folder is still in trash. Restore the parent folder first.",
-                        "PARENT_FOLDER_NOT_RESTORED",
-                        "id");
-            }
-
             Long parentId = folder.getParent() != null ? folder.getParent().getId() : null;
             fileManagerNamespaceService.ensureAvailable(
                     userId,
@@ -135,18 +120,6 @@ public class RestoreFolderUseCase {
                     "Cannot restore folder because another active folder with the same name already exists in the target location.",
                     "FOLDER_RESTORE_NAME_CONFLICT",
                     "name");
-        }
-    }
-
-    private void validateRestoredDocumentFolders(List<Document> documentsToRestore, Set<Long> restoringFolderIds) {
-        for (Document document : documentsToRestore) {
-            Folder folder = document.getFolder();
-            if (folder != null && folder.getDeletedAt() != null && !restoringFolderIds.contains(folder.getId())) {
-                throw new BadRequestException(
-                        "A document in this folder tree still points to a folder in trash. Restore the folder tree in order.",
-                        "DOCUMENT_FOLDER_NOT_RESTORED",
-                        "id");
-            }
         }
     }
 

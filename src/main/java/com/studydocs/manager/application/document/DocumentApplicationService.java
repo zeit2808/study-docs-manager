@@ -2,12 +2,11 @@ package com.studydocs.manager.application.document;
 
 import com.studydocs.manager.application.document.usecase.CreateDocumentUseCase;
 import com.studydocs.manager.application.document.usecase.DocumentQueryUseCase;
-import com.studydocs.manager.application.document.usecase.EmptyTrashDocumentsUseCase;
-import com.studydocs.manager.application.document.usecase.PermanentDeleteDocumentUseCase;
 import com.studydocs.manager.application.document.usecase.RestoreTrashedDocumentUseCase;
 import com.studydocs.manager.application.document.usecase.SoftDeleteDocumentUseCase;
 import com.studydocs.manager.application.document.usecase.UpdateDocumentUseCase;
 import com.studydocs.manager.dto.document.DocumentCreateRequest;
+import com.studydocs.manager.dto.document.DocumentCreateResponse;
 import com.studydocs.manager.dto.document.DocumentResponse;
 import com.studydocs.manager.dto.document.DocumentUpdateRequest;
 import org.springframework.data.domain.Page;
@@ -21,8 +20,6 @@ public class DocumentApplicationService {
     private final UpdateDocumentUseCase updateDocumentUseCase;
     private final SoftDeleteDocumentUseCase softDeleteDocumentUseCase;
     private final RestoreTrashedDocumentUseCase restoreDocumentUseCase;
-    private final PermanentDeleteDocumentUseCase permanentDeleteDocumentUseCase;
-    private final EmptyTrashDocumentsUseCase emptyTrashDocumentsUseCase;
     private final DocumentQueryUseCase documentQueryUseCase;
 
     public DocumentApplicationService(
@@ -30,19 +27,15 @@ public class DocumentApplicationService {
             UpdateDocumentUseCase updateDocumentUseCase,
             SoftDeleteDocumentUseCase softDeleteDocumentUseCase,
             RestoreTrashedDocumentUseCase restoreDocumentUseCase,
-            PermanentDeleteDocumentUseCase permanentDeleteDocumentUseCase,
-            EmptyTrashDocumentsUseCase emptyTrashDocumentsUseCase,
             DocumentQueryUseCase documentQueryUseCase) {
         this.createDocumentUseCase = createDocumentUseCase;
         this.updateDocumentUseCase = updateDocumentUseCase;
         this.softDeleteDocumentUseCase = softDeleteDocumentUseCase;
         this.restoreDocumentUseCase = restoreDocumentUseCase;
-        this.permanentDeleteDocumentUseCase = permanentDeleteDocumentUseCase;
-        this.emptyTrashDocumentsUseCase = emptyTrashDocumentsUseCase;
         this.documentQueryUseCase = documentQueryUseCase;
     }
 
-    public DocumentResponse createDocument(DocumentCreateRequest request) {
+    public DocumentCreateResponse createDocument(DocumentCreateRequest request) {
         return createDocumentUseCase.execute(request);
     }
 
@@ -72,13 +65,5 @@ public class DocumentApplicationService {
 
     public Page<DocumentResponse> getMyTrash(Pageable pageable) {
         return documentQueryUseCase.getMyTrash(pageable);
-    }
-
-    public void permanentDeleteDocument(Long id) {
-        permanentDeleteDocumentUseCase.execute(id);
-    }
-
-    public void emptyTrash() {
-        emptyTrashDocumentsUseCase.execute();
     }
 }

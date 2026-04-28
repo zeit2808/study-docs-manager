@@ -6,6 +6,7 @@ import com.studydocs.manager.entity.Folder;
 import com.studydocs.manager.repository.DocumentAssetRepository;
 import com.studydocs.manager.repository.DocumentRepository;
 import com.studydocs.manager.repository.FolderRepository;
+import com.studydocs.manager.repository.FolderEventRepository;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +28,7 @@ public class FolderTrashCleanupService {
     private final FolderRepository folderRepository;
     private final DocumentRepository documentRepository;
     private final DocumentAssetRepository documentAssetRepository;
+    private final FolderEventRepository folderEventRepository;
     private final boolean folderTrashCleanupEnabled;
     private final int folderTrashRetentionDays;
 
@@ -34,11 +36,13 @@ public class FolderTrashCleanupService {
             FolderRepository folderRepository,
             DocumentRepository documentRepository,
             DocumentAssetRepository documentAssetRepository,
+            FolderEventRepository folderEventRepository,
             @Value("${cleanup.folder-trash.enabled:true}") boolean folderTrashCleanupEnabled,
             @Value("${cleanup.folder-trash.retention-days:90}") int folderTrashRetentionDays) {
         this.folderRepository = folderRepository;
         this.documentRepository = documentRepository;
         this.documentAssetRepository = documentAssetRepository;
+        this.folderEventRepository = folderEventRepository;
         this.folderTrashCleanupEnabled = folderTrashCleanupEnabled;
         this.folderTrashRetentionDays = folderTrashRetentionDays;
     }
@@ -77,8 +81,12 @@ public class FolderTrashCleanupService {
             List<Folder> foldersDescending = treeData.folders().stream()
                     .sorted(Comparator.comparingInt(this::folderDepth).reversed())
                     .toList();
+            List<Long> folderIds = foldersDescending.stream()
+                    .map(Folder::getId)
+                    .toList();
 
             documentRepository.deleteAll(deletedDocuments);
+            folderEventRepository.deleteByFolderIdIn(folderIds);
             folderRepository.deleteAll(foldersDescending);
 
             purgedTrees++;

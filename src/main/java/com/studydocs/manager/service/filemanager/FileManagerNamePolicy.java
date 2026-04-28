@@ -61,4 +61,20 @@ public class FileManagerNamePolicy {
                 trimmedPreferredName,
                 candidate -> occupiedNormalizedNames.contains(normalize(candidate)));
     }
+
+    public String resolveCreateName(String preferredName, Set<String> occupiedNormalizedNames) {
+        String trimmedPreferredName = FileManagerNameUtils.firstNonBlank(preferredName);
+        if (trimmedPreferredName == null) {
+            trimmedPreferredName = "Untitled";
+        }
+
+        String normalizedPreferredName = normalize(trimmedPreferredName);
+        if (normalizedPreferredName != null && !occupiedNormalizedNames.contains(normalizedPreferredName)) {
+            return trimmedPreferredName;
+        }
+
+        return FileManagerNameUtils.resolveIndexedName(
+                trimmedPreferredName,
+                candidate -> occupiedNormalizedNames.contains(normalize(candidate)));
+    }
 }

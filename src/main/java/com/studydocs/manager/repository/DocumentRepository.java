@@ -130,6 +130,9 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
 
         List<Document> findByUserIdAndDeletedRootFolderId(Long userId, Long deletedRootFolderId);
 
+        @Query("SELECT DISTINCT d.deletedRootFolderId FROM Document d WHERE d.user.id = :userId AND d.deletedAt IS NOT NULL AND d.deletedRootFolderId IS NOT NULL")
+        List<Long> findDistinctDeletedRootFolderIdsByUserId(@Param("userId") Long userId);
+
         List<Document> findByDeletedRootFolderId(Long deletedRootFolderId);
 
 }

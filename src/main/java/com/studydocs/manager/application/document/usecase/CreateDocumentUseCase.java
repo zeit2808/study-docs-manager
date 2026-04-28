@@ -1,7 +1,7 @@
 package com.studydocs.manager.application.document.usecase;
 
 import com.studydocs.manager.dto.document.DocumentCreateRequest;
-import com.studydocs.manager.dto.document.DocumentResponse;
+import com.studydocs.manager.dto.document.DocumentCreateResponse;
 import com.studydocs.manager.entity.Document;
 import com.studydocs.manager.entity.Folder;
 import com.studydocs.manager.entity.User;
@@ -22,6 +22,8 @@ import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+
+import java.util.Set;
 
 @Service
 public class CreateDocumentUseCase {
@@ -60,7 +62,7 @@ public class CreateDocumentUseCase {
     }
 
     @Transactional
-    public DocumentResponse execute(DocumentCreateRequest request) {
+    public DocumentCreateResponse execute(DocumentCreateRequest request) {
         Long currentUserId = permissionService.requireCurrentUserId();
         User user = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new NotFoundException("User not found", "USER_NOT_FOUND", null));
@@ -69,13 +71,14 @@ public class CreateDocumentUseCase {
                 ? null
                 : permissionService.validateFolderOwnership(request.getFolderId(), currentUserId);
 
-        String resolvedDisplayName = fileManagerNamePolicy.requireDocumentName(
+        String requestedDisplayName = fileManagerNamePolicy.requireDocumentName(
                 request.getDisplayName(), request.getFileName(), request.getTitle());
-        fileManagerNamespaceService.ensureDocumentNameAvailable(
+        Set<String> occupiedNormalizedNames = fileManagerNamespaceService.loadNormalizedNames(
                 currentUserId,
-                folder != null ? folder.getId() : null,
-                resolvedDisplayName,
-                null);
+                folder != null ? folder.getId() : null);
+        String resolvedDisplayName = fileManagerNamePolicy.resolveCreateName(
+                requestedDisplayName,
+                occupiedNormalizedNames);
 
         Document document = new Document();
         document.setUser(user);
@@ -106,6 +109,6 @@ public class CreateDocumentUseCase {
         activityService.scheduleReindex(saved.getId());
 
         logger.info("Document created - id: {}, title: {}, userId: {}", saved.getId(), saved.getTitle(), currentUserId);
-        return fileManagerResponseMapper.toDocumentResponse(saved);
+        return fileManagerResponseMapper.toDocumentCreateResponse(saved);
     }
 }

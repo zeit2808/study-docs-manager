@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.stream.Collectors;
 
 @Service
@@ -54,8 +56,14 @@ public class FolderQueryUseCase {
 
     public List<FolderTrashResponse> getMyTrash() {
         Long userId = accessService.requireCurrentUserId();
-        List<Folder> deletedRoots = folderRepository.findDeletedRootFoldersByUserId(userId);
-        return deletedRoots.stream()
+        Set<Long> restoreGroupRootIds = new HashSet<>(folderRepository.findDistinctDeletedRootFolderIdsByUserId(userId));
+        restoreGroupRootIds.addAll(documentRepository.findDistinctDeletedRootFolderIdsByUserId(userId));
+
+        List<Folder> restoreRoots = folderRepository.findAllById(restoreGroupRootIds).stream()
+                .filter(folder -> folder.getUser().getId().equals(userId))
+                .toList();
+
+        return restoreRoots.stream()
                 .map(this::toTrashResponse)
                 .collect(Collectors.toList());
     }

@@ -10,6 +10,7 @@ import com.studydocs.manager.repository.DocumentRepository;
 import com.studydocs.manager.service.filemanager.FileManagerAccessService;
 import com.studydocs.manager.service.filemanager.FileManagerAssetStateService;
 import com.studydocs.manager.service.filemanager.FileManagerEventService;
+import com.studydocs.manager.service.filemanager.FolderRestorePathService;
 import com.studydocs.manager.service.filemanager.FileManagerNamingService;
 import org.springframework.stereotype.Service;
 
@@ -21,18 +22,21 @@ public class RestoreDocumentUseCase {
     private final FileManagerAssetStateService fileManagerAssetStateService;
     private final FileManagerNamingService fileManagerNamingService;
     private final FileManagerEventService fileManagerEventService;
+    private final FolderRestorePathService folderRestorePathService;
 
     public RestoreDocumentUseCase(
             DocumentRepository documentRepository,
             FileManagerAccessService fileManagerAccessService,
             FileManagerAssetStateService fileManagerAssetStateService,
             FileManagerNamingService fileManagerNamingService,
-            FileManagerEventService fileManagerEventService) {
+            FileManagerEventService fileManagerEventService,
+            FolderRestorePathService folderRestorePathService) {
         this.documentRepository = documentRepository;
         this.fileManagerAccessService = fileManagerAccessService;
         this.fileManagerAssetStateService = fileManagerAssetStateService;
         this.fileManagerNamingService = fileManagerNamingService;
         this.fileManagerEventService = fileManagerEventService;
+        this.folderRestorePathService = folderRestorePathService;
     }
 
     public Document execute(Long id) {
@@ -47,10 +51,7 @@ public class RestoreDocumentUseCase {
             throw new ForbiddenException("You don't have permission to restore this document", "DOCUMENT_RESTORE_DENIED", "id");
         }
         if (document.getFolder() != null && document.getFolder().getDeletedAt() != null) {
-            throw new BadRequestException(
-                    "Folder is still in trash. Restore the folder first.",
-                    "DOCUMENT_FOLDER_NOT_RESTORED",
-                    "folderId");
+            folderRestorePathService.restoreDeletedAncestorChain(document.getFolder(), currentUserId);
         }
 
         DocumentAsset asset = fileManagerAssetStateService.resolveAsset(document);

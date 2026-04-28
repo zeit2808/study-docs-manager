@@ -45,9 +45,21 @@ public class FileManagerAccessService {
         return actor.getRole() != null && "ADMIN".equals(actor.getRole().getName());
     }
 
+    /**
+     * Resolves the target folder for a transfer operation.
+     *
+     * <p>When {@code targetFolderId} is {@code null}, the method returns {@code null} to represent
+     * the user's <b>root directory</b> (i.e. items with {@code parentId = null}).
+     * This is the standard convention for all move, copy, and paste operations:
+     * omitting the target folder ID means "transfer to root".
+     *
+     * @param targetFolderId the target folder ID, or {@code null} for root
+     * @param userId         the current user's ID for ownership validation
+     * @return the resolved {@link Folder}, or {@code null} if targeting root
+     */
     public Folder resolveTargetFolder(Long targetFolderId, Long userId) {
         if (targetFolderId == null) {
-            return null;
+            return null; // root directory — items will have parentId = null
         }
 
         Folder folder = folderRepository.findByIdAndDeletedAtIsNull(targetFolderId)
