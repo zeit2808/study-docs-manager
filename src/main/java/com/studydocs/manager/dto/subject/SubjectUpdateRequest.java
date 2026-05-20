@@ -36,11 +36,11 @@ public class SubjectUpdateRequest {
         this.parentId = parentId;
     }
 
-    public Boolean getActive() {
+    public Boolean getIsActive() {
         return isActive;
     }
 
-    public void setActive(Boolean active) {
+    public void setIsActive(Boolean active) {
         isActive = active;
     }
 
@@ -51,4 +51,5 @@ public class SubjectUpdateRequest {
     public void setSortOrder(Integer sortOrder) {
         this.sortOrder = sortOrder;
     }
+
 }
