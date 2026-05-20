@@ -9,7 +9,8 @@ import java.util.Set;
 @Entity
 @Table(name = "tags", indexes = {
         @Index(name = "idx_tags_slug", columnList = "slug"),
-        @Index(name = "idx_tags_name", columnList = "name")
+        @Index(name = "idx_tags_name", columnList = "name"),
+        @Index(name = "idx_tags_is_is_active", columnList = "is_active")
 }, uniqueConstraints = {
         @UniqueConstraint(name = "uk_tag_name", columnNames = "name"),
         @UniqueConstraint(name = "uk_tag_slug", columnNames = "slug")
@@ -26,6 +27,9 @@ public class Tag {
 
     @Column(nullable = false, unique = true, length = 100)
     private String slug;
+
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive = true;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -79,4 +83,11 @@ public class Tag {
         this.documentTags = documentTags;
     }
 
+    public Boolean getActive() {
+        return isActive;
+    }
+
+    public void setActive(Boolean active) {
+        isActive = active;
+    }
 }
