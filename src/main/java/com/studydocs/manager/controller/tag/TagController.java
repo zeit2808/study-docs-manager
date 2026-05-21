@@ -4,21 +4,28 @@ import com.studydocs.manager.application.tag.TagApplicationService;
 import com.studydocs.manager.dto.tag.TagCreateRequest;
 import com.studydocs.manager.dto.tag.TagResponse;
 import com.studydocs.manager.dto.tag.TagUpdateRequest;
+import com.studydocs.manager.web.PageableSanitizer;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/tags")
 @io.swagger.v3.oas.annotations.tags.Tag(name = "Tags", description = "APIs for managing tags")
 @SecurityRequirement(name = "bearerAuth")
 public class TagController {
+
+    private static final Set<String> ALLOWED_SORT_PROPERTIES = Set.of("id", "name", "slug", "createdAt");
+    private static final Sort DEFAULT_SORT = Sort.by(Sort.Order.asc("name"), Sort.Order.desc("id"));
 
     private final TagApplicationService tagApplicationService;
 
@@ -46,7 +53,8 @@ public class TagController {
     public ResponseEntity<Page<TagResponse>> list(
             @RequestParam(required = false) String keyword,
             Pageable pageable) {
-        return ResponseEntity.ok(tagApplicationService.list(keyword, pageable));
+        Pageable safePageable = PageableSanitizer.sanitize(pageable, ALLOWED_SORT_PROPERTIES, DEFAULT_SORT);
+        return ResponseEntity.ok(tagApplicationService.list(keyword, safePageable));
     }
 
     @PutMapping("/{id}")

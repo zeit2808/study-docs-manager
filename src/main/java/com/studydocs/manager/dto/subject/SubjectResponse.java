@@ -1,9 +1,18 @@
 package com.studydocs.manager.dto.subject;
 
 public class SubjectResponse {
+    private Long id;
     private String name;
     private String slug;
     private String description;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
 
     public String getName() {
         return name;

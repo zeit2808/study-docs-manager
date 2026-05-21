@@ -31,11 +31,11 @@ public class CreateTagUseCase {
         Optional<Tag> existingOptional = tagRepository.findByNameIgnoreCase(normalizedName);
         if (existingOptional.isPresent()) {
             Tag existing = existingOptional.get();
-            if (Boolean.TRUE.equals(existing.getActive())) {
+            if (Boolean.TRUE.equals(existing.getIsActive())) {
                 throw new ConflictException("Tag name already exists", "TAG_NAME_EXISTS", "name");
             }
 
-            existing.setActive(true);
+            existing.setIsActive(true);
             existing.setName(normalizedName);
             if (existing.getSlug() == null || existing.getSlug().trim().isEmpty()) {
                 existing.setSlug(slugService.uniqueSlug(normalizedName, slug -> {
@@ -52,7 +52,7 @@ public class CreateTagUseCase {
         Tag tag = new Tag();
         tag.setName(normalizedName);
         tag.setSlug(slugService.uniqueSlug(normalizedName, tagRepository::existsBySlug));
-        tag.setActive(true);
+        tag.setIsActive(true);
 
         Tag saved = tagRepository.save(tag);
         return TagMapper.toResponse(saved);
