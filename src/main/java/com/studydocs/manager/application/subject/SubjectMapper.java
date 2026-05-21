@@ -8,6 +8,7 @@ public final class SubjectMapper {
 
     public static SubjectResponse toResponse(Subject s) {
         SubjectResponse r = new SubjectResponse();
+        r.setId(s.getId());
         r.setName(s.getName());
         r.setSlug(s.getSlug());
         r.setDescription(s.getDescription());
