@@ -66,4 +66,8 @@ public class JwtTokenProvider {
             return false;
         }
     }
+
+    public long getExpirationMillis() {
+        return jwtExpiration;
+    }
 }

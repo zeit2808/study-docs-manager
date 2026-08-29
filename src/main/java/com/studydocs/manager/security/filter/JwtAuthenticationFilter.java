@@ -1,5 +1,6 @@
 package com.studydocs.manager.security.filter;
 
+import com.studydocs.manager.security.jwt.JwtCookieService;
 import com.studydocs.manager.security.jwt.JwtTokenProvider;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.FilterChain;
@@ -22,38 +23,69 @@ import java.util.stream.Collectors;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
-
-    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider) {
+    private final JwtCookieService jwtCookieService;
+    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider, JwtCookieService jwtCookieService) {
         this.tokenProvider = tokenProvider;
+        this.jwtCookieService = jwtCookieService;
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain
+    ) throws ServletException, IOException {
+
         try {
-            String jwt = getJwtFromRequest(request);
-            if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
+            String cookieJwt = jwtCookieService.extractJwtFromCookie(request);
+            String headerJwt = getJwtFromAuthorizationHeader(request);
+
+            String jwt = null;
+
+            if (StringUtils.hasText(cookieJwt) && tokenProvider.validateToken(cookieJwt)) {
+                jwt = cookieJwt;
+            } else if (StringUtils.hasText(headerJwt) && tokenProvider.validateToken(headerJwt)) {
+                jwt = headerJwt;
+            }
+
+            if (jwt != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 String username = tokenProvider.getUsernameFromToken(jwt);
                 String roles = extractRolesFromToken(jwt);
-                List<SimpleGrantedAuthority> authorities = Arrays.stream(roles.split(","))
+
+                List<SimpleGrantedAuthority> authorities = Arrays.stream(
+                                roles == null ? new String[0] : roles.split(","))
+                        .filter(StringUtils::hasText)
+                        .map(String::trim)
                         .map(SimpleGrantedAuthority::new)
                         .collect(Collectors.toList());
+
                 UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(username, null, authorities);
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        new UsernamePasswordAuthenticationToken(
+                                username,
+                                null,
+                                authorities
+                        );
+
+                authentication.setDetails(
+                        new WebAuthenticationDetailsSource().buildDetails(request)
+                );
+
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (Exception ex) {
-            logger.error("Could not set user authentication in security context");
+            logger.error("Could not set user authentication in security context", ex);
         }
+
         filterChain.doFilter(request, response);
     }
 
-    private String getJwtFromRequest(HttpServletRequest request) {
+    private String getJwtFromAuthorizationHeader(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
+
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7);
         }
+
         return null;
     }
 
