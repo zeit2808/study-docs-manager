@@ -54,6 +54,14 @@ public class GlobalExceptionHandler {
         ErrorResponse response = buildErrorResponse(ex.getStatus(), ex.getError(), ex.getMessage(), request);
         response.setCode(ex.getCode());
         response.setField(ex.getField());
+
+        if (ex instanceof TooManyRequestsException tmr && tmr.getRetryAfterSeconds() != null) {
+            response.setErrors(Map.of("retryAfterSeconds", tmr.getRetryAfterSeconds()));
+            return ResponseEntity.status(ex.getStatus())
+                    .header(org.springframework.http.HttpHeaders.RETRY_AFTER, String.valueOf(tmr.getRetryAfterSeconds()))
+                    .body(response);
+        }
+
         return ResponseEntity.status(ex.getStatus()).body(response);
     }
 

@@ -47,6 +47,9 @@ public class User {
     @Column(name = "locked_until")
     private java.time.LocalDateTime lockedUntil;
 
+    @Column(name = "token_version", nullable = false)
+    private Long tokenVersion = 0L;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -176,5 +179,13 @@ public class User {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Long getTokenVersion() {
+        return tokenVersion == null ? 0L : tokenVersion;
+    }
+
+    public void incrementTokenVersion() {
+        tokenVersion = getTokenVersion() + 1;
     }
 }

@@ -2,6 +2,7 @@ package com.studydocs.manager.security.service;
 
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -10,10 +11,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RateLimiterService {
 
     private static class Bucket {
-        int tokens;
-        int capacity;
-        long refillIntervalMillis;
-        long lastRefillTimestamp;
+        private int tokens;
+        private final int capacity;
+        private final long refillIntervalMillis;
+        private long lastRefillTimestamp;
 
         Bucket(int capacity, long refillIntervalMillis) {
             this.capacity = capacity;
@@ -23,18 +24,20 @@ public class RateLimiterService {
         }
 
         synchronized boolean tryConsume() {
-            refill();
-            if (tokens > 0) {
-                tokens--;
-                return true;
+            refillIfNeeded();
+
+            if (tokens <= 0) {
+                return false;
             }
-            return false;
+
+            tokens--;
+            return true;
         }
 
-        private void refill() {
+        private void refillIfNeeded() {
             long now = Instant.now().toEpochMilli();
-            long elapsed = now - lastRefillTimestamp;
-            if (elapsed > refillIntervalMillis) {
+
+            if (now - lastRefillTimestamp >= refillIntervalMillis) {
                 tokens = capacity;
                 lastRefillTimestamp = now;
             }
@@ -44,9 +47,15 @@ public class RateLimiterService {
     private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
 
     public boolean tryConsume(String key, int capacityPerMinute) {
-        long interval = 60_000L;
-        Bucket bucket = buckets.computeIfAbsent(key,
-                k -> new Bucket(capacityPerMinute, interval));
+        return tryConsume(key, capacityPerMinute, Duration.ofMinutes(1));
+    }
+
+    public boolean tryConsume(String key, int capacity, Duration interval) {
+        Bucket bucket = buckets.computeIfAbsent(
+                key,
+                ignored -> new Bucket(capacity, interval.toMillis())
+        );
+
         return bucket.tryConsume();
     }
 }

@@ -1,13 +1,18 @@
 package com.studydocs.manager.dto.auth;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public class ChangePasswordRequest {
     @NotBlank
     private String currentPassword;
     @NotBlank
-    @Size(min=6 ,message="Password must be at least 6 characters long")
+    @Size(min = 8, max = 64, message = "Password must be between 8 and 64 characters")
+    @Pattern(
+            regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&.,;:_+\\-=^#()\\[\\]{}|<>]).{8,64}$",
+            message = "Password must have upper, lower, digit, special char, no spaces"
+    )
     private String newPassword;
 
     public ChangePasswordRequest() {

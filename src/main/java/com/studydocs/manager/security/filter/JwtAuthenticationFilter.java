@@ -1,9 +1,11 @@
 package com.studydocs.manager.security.filter;
 
+import com.studydocs.manager.entity.User;
+import com.studydocs.manager.repository.UserRepository;
 import com.studydocs.manager.security.jwt.JwtCookieService;
 import com.studydocs.manager.security.jwt.JwtTokenProvider;
-import jakarta.servlet.ServletException;
 import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -15,8 +17,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @Component
@@ -24,9 +26,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
     private final JwtCookieService jwtCookieService;
-    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider, JwtCookieService jwtCookieService) {
+    private final UserRepository userRepository;
+
+    public JwtAuthenticationFilter(
+            JwtTokenProvider tokenProvider,
+            JwtCookieService jwtCookieService,
+            UserRepository userRepository
+    ) {
         this.tokenProvider = tokenProvider;
         this.jwtCookieService = jwtCookieService;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -37,67 +46,91 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
 
         try {
-            String cookieJwt = jwtCookieService.extractJwtFromCookie(request);
-            String headerJwt = getJwtFromAuthorizationHeader(request);
+            String jwt = resolveToken(request);
 
-            String jwt = null;
+            if (StringUtils.hasText(jwt)
+                    && tokenProvider.validateToken(jwt)
+                    && SecurityContextHolder.getContext()
+                    .getAuthentication() == null) {
 
-            if (StringUtils.hasText(cookieJwt) && tokenProvider.validateToken(cookieJwt)) {
-                jwt = cookieJwt;
-            } else if (StringUtils.hasText(headerJwt) && tokenProvider.validateToken(headerJwt)) {
-                jwt = headerJwt;
-            }
-
-            if (jwt != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                String username = tokenProvider.getUsernameFromToken(jwt);
-                String roles = extractRolesFromToken(jwt);
-
-                List<SimpleGrantedAuthority> authorities = Arrays.stream(
-                                roles == null ? new String[0] : roles.split(","))
-                        .filter(StringUtils::hasText)
-                        .map(String::trim)
-                        .map(SimpleGrantedAuthority::new)
-                        .collect(Collectors.toList());
-
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(
-                                username,
-                                null,
-                                authorities
-                        );
-
-                authentication.setDetails(
-                        new WebAuthenticationDetailsSource().buildDetails(request)
-                );
-
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                authenticateRequest(jwt, request);
             }
         } catch (Exception ex) {
-            logger.error("Could not set user authentication in security context", ex);
+            logger.warn("JWT authentication failed", ex);
         }
 
         filterChain.doFilter(request, response);
     }
 
-    private String getJwtFromAuthorizationHeader(HttpServletRequest request) {
-        String bearerToken = request.getHeader("Authorization");
+    private String resolveToken(HttpServletRequest request) {
+        String cookieJwt = jwtCookieService.extractJwtFromCookie(request);
 
-        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
-            return bearerToken.substring(7);
+        if (StringUtils.hasText(cookieJwt)
+                && tokenProvider.validateToken(cookieJwt)) {
+            return cookieJwt;
+        }
+
+        String header = request.getHeader("Authorization");
+
+        if (StringUtils.hasText(header) && header.startsWith("Bearer ")) {
+            return header.substring(7);
         }
 
         return null;
     }
 
+    private void authenticateRequest(
+            String jwt,
+            HttpServletRequest request
+    ) {
+        String username = tokenProvider.getUsernameFromToken(jwt);
+
+        User user = userRepository.findByUsername(username).orElse(null);
+
+        if (user == null || !Boolean.TRUE.equals(user.getEnabled())) {
+            return;
+        }
+
+        long tokenVersion = tokenProvider.getTokenVersionFromToken(jwt);
+
+        // JWT cũ, JWT không có claim, hoặc JWT đã bị revoke sau đổi password.
+        if (tokenVersion != user.getTokenVersion()) {
+            return;
+        }
+
+        String roles = extractRolesFromToken(jwt);
+
+        List<SimpleGrantedAuthority> authorities =
+                Arrays.stream(roles.split(","))
+                        .filter(StringUtils::hasText)
+                        .map(String::trim)
+                        .map(SimpleGrantedAuthority::new)
+                        .collect(Collectors.toList());
+
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(
+                        username,
+                        null,
+                        authorities
+                );
+
+        authentication.setDetails(
+                new WebAuthenticationDetailsSource().buildDetails(request)
+        );
+
+        SecurityContextHolder.getContext()
+                .setAuthentication(authentication);
+    }
+
     private String extractRolesFromToken(String token) {
         try {
-            io.jsonwebtoken.Claims claims = io.jsonwebtoken.Jwts.parser()
+            return io.jsonwebtoken.Jwts.parser()
                     .verifyWith(tokenProvider.getSigningKey())
                     .build()
                     .parseSignedClaims(token)
-                    .getPayload();
-            return claims.get("roles", String.class);
-        } catch (Exception e) {
+                    .getPayload()
+                    .get("roles", String.class);
+        } catch (Exception ex) {
             return "";
         }
     }

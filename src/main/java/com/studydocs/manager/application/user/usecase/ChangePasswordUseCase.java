@@ -49,6 +49,7 @@ public class ChangePasswordUseCase {
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.incrementTokenVersion();
         userRepository.save(user);
     }
 }

@@ -58,7 +58,10 @@ public class LoginUseCase {
             SecurityContextHolder.getContext().setAuthentication(authentication);
             loginAttemptService.resetFailedAttempts(request.getUsername());
 
-            String jwt = tokenProvider.generateToken(authentication);
+            String jwt = tokenProvider.generateToken(
+                    authentication,
+                    user.getTokenVersion()
+            );
             String roleName = "ROLE_" + user.getRole().getName();
             return new JwtResponse(jwt, user.getId(), user.getUsername(), user.getEmail(), roleName);
 
