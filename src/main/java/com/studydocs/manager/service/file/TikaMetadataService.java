@@ -43,38 +43,41 @@ public class TikaMetadataService {
      * @return FileMetadata chứa tất cả metadata extracted
      */
     public FileMetadata extractMetadata(MultipartFile file) {
+        try (InputStream inputStream = file.getInputStream()) {
+            return extractMetadata(inputStream, file.getOriginalFilename());
+        } catch (Exception e) {
+            logger.error("Error extracting metadata from file: {} - {}",
+                    file.getOriginalFilename(), e.getMessage(), e);
+            throw new RuntimeException("Failed to extract metadata: " + e.getMessage(), e);
+        }
+    }
+
+    public FileMetadata extractMetadata(InputStream inputStream, String resourceName) {
         FileMetadata fileMetadata = new FileMetadata();
 
-        try (InputStream inputStream = file.getInputStream()) {
-            // Initialize Tika components
+        try {
             Parser parser = new AutoDetectParser();
             BodyContentHandler handler = new BodyContentHandler(MAX_TEXT_LENGTH);
             Metadata metadata = new Metadata();
             ParseContext context = new ParseContext();
 
-            // Set filename để Tika detect tốt hơn
-            metadata.set("resourceName", file.getOriginalFilename());
+            if (resourceName != null && !resourceName.isBlank()) {
+                metadata.set("resourceName", resourceName);
+            }
 
-            // Parse file để extract metadata và content
-            logger.debug("Parsing file: {}", file.getOriginalFilename());
+            logger.debug("Parsing resource: {}", resourceName);
             parser.parse(inputStream, handler, metadata, context);
 
-            // Extract basic metadata (using string literals for compatibility)
             fileMetadata.setTitle(getMetadataValue(metadata, "dc:title"));
             fileMetadata.setAuthor(getMetadataValue(metadata, "dc:creator"));
             fileMetadata.setSubject(getMetadataValue(metadata, "dc:subject"));
             fileMetadata.setKeywords(getMetadataValue(metadata, "meta:keyword"));
             fileMetadata.setDescription(getMetadataValue(metadata, "dc:description"));
-
-            // Extract technical details
             fileMetadata.setContentType(getMetadataValue(metadata, "Content-Type"));
             fileMetadata.setLanguage(getMetadataValue(metadata, "dc:language"));
-
-            // Extract dates
             fileMetadata.setCreationDate(getMetadataValue(metadata, "dcterms:created"));
             fileMetadata.setModificationDate(getMetadataValue(metadata, "dcterms:modified"));
 
-            // Extract page count (for PDF, Word, etc.)
             String pageCountStr = getMetadataValue(metadata, "xmpTPg:NPages");
             if (pageCountStr == null) {
                 pageCountStr = getMetadataValue(metadata, "meta:page-count");
@@ -87,7 +90,6 @@ public class TikaMetadataService {
                 }
             }
 
-            // Extract word count
             String wordCountStr = getMetadataValue(metadata, "meta:word-count");
             if (wordCountStr != null) {
                 try {
@@ -97,13 +99,11 @@ public class TikaMetadataService {
                 }
             }
 
-            // Extract text content (preview - limited by MAX_TEXT_LENGTH)
             String extractedText = handler.toString();
             if (extractedText != null && !extractedText.trim().isEmpty()) {
                 fileMetadata.setExtractedText(extractedText.trim());
             }
 
-            // Store all metadata as additional info
             Map<String, String> additionalMetadata = new HashMap<>();
             for (String name : metadata.names()) {
                 String value = metadata.get(name);
@@ -114,35 +114,31 @@ public class TikaMetadataService {
             fileMetadata.setAdditionalMetadata(additionalMetadata);
 
             logger.info("Metadata extracted successfully for: {} - Title: {}, Pages: {}, Words: {}",
-                    file.getOriginalFilename(),
+                    resourceName,
                     fileMetadata.getTitle(),
                     fileMetadata.getPageCount(),
                     fileMetadata.getWordCount());
 
         } catch (Exception e) {
-            logger.error("Error extracting metadata from file: {} - {}",
-                    file.getOriginalFilename(), e.getMessage(), e);
+            logger.error("Error extracting metadata: {} - {}", resourceName, e.getMessage(), e);
             throw new RuntimeException("Failed to extract metadata: " + e.getMessage(), e);
         }
 
         return fileMetadata;
     }
 
-    /**
-     * Extract lightweight metadata summary từ file
-     * 
-     * Chỉ extract essential fields, không extract text content và additional
-     * metadata
-     * để giảm response size và processing time.
-     * 
-     * @param file MultipartFile từ upload
-     * @return FileMetadataSummary chứa essential metadata fields
-     */
     public com.studydocs.manager.dto.file.FileMetadataSummary extractMetadataSummary(MultipartFile file) {
-        // Extract full metadata first
-        FileMetadata fullMetadata = extractMetadata(file);
+        try (InputStream inputStream = file.getInputStream()) {
+            return extractMetadataSummary(inputStream, file.getOriginalFilename());
+        } catch (Exception e) {
+            logger.error("Error extracting metadata summary: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to extract metadata summary: " + e.getMessage(), e);
+        }
+    }
 
-        // Convert to summary (only essential fields)
+    public com.studydocs.manager.dto.file.FileMetadataSummary extractMetadataSummary(InputStream inputStream, String resourceName) {
+        FileMetadata fullMetadata = extractMetadata(inputStream, resourceName);
+
         com.studydocs.manager.dto.file.FileMetadataSummary summary = new com.studydocs.manager.dto.file.FileMetadataSummary();
         summary.setTitle(fullMetadata.getTitle());
         summary.setAuthor(fullMetadata.getAuthor());

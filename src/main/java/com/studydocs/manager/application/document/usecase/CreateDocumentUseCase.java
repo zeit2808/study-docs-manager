@@ -8,9 +8,11 @@ import com.studydocs.manager.entity.User;
 import com.studydocs.manager.enums.DocumentEventType;
 import com.studydocs.manager.enums.DocumentStatus;
 import com.studydocs.manager.enums.DocumentVisibility;
+import com.studydocs.manager.exception.BadRequestException;
 import com.studydocs.manager.exception.NotFoundException;
 import com.studydocs.manager.repository.DocumentRepository;
 import com.studydocs.manager.repository.UserRepository;
+import com.studydocs.manager.storage.StorageProvider;
 import com.studydocs.manager.service.document.DocumentActivityService;
 import com.studydocs.manager.service.document.DocumentAssetService;
 import com.studydocs.manager.service.document.DocumentPermissionService;
@@ -39,6 +41,7 @@ public class CreateDocumentUseCase {
     private final FileManagerNamePolicy fileManagerNamePolicy;
     private final FileManagerNamespaceService fileManagerNamespaceService;
     private final FileManagerResponseMapper fileManagerResponseMapper;
+    private final StorageProvider storageProvider;
 
     public CreateDocumentUseCase(
             DocumentRepository documentRepository,
@@ -49,7 +52,8 @@ public class CreateDocumentUseCase {
             DocumentActivityService activityService,
             FileManagerNamePolicy fileManagerNamePolicy,
             FileManagerNamespaceService fileManagerNamespaceService,
-            FileManagerResponseMapper fileManagerResponseMapper) {
+            FileManagerResponseMapper fileManagerResponseMapper,
+            StorageProvider storageProvider) {
         this.documentRepository = documentRepository;
         this.userRepository = userRepository;
         this.permissionService = permissionService;
@@ -59,6 +63,7 @@ public class CreateDocumentUseCase {
         this.fileManagerNamePolicy = fileManagerNamePolicy;
         this.fileManagerNamespaceService = fileManagerNamespaceService;
         this.fileManagerResponseMapper = fileManagerResponseMapper;
+        this.storageProvider = storageProvider;
     }
 
     @Transactional
@@ -93,10 +98,27 @@ public class CreateDocumentUseCase {
             document.setFolder(folder);
         }
 
+        Long fileSize = request.getFileSize();
+        if (request.getObjectName() != null && !request.getObjectName().isBlank()) {
+            if (!storageProvider.fileExists(request.getObjectName())) {
+                throw new BadRequestException(
+                        "File has not been uploaded to storage yet or object does not exist: " + request.getObjectName(),
+                        "FILE_NOT_FOUND_ON_STORAGE",
+                        "objectName");
+            }
+            if (fileSize == null || fileSize <= 0) {
+                try {
+                    fileSize = storageProvider.getObjectSize(request.getObjectName());
+                } catch (Exception e) {
+                    logger.warn("Could not retrieve object size from storage: {}", e.getMessage());
+                }
+            }
+        }
+
         Document saved = documentRepository.save(document);
 
         assetService.upsertAsset(saved, request.getObjectName(), request.getFileName(),
-                request.getFileSize(), request.getFileType(), request.getThumbnailObjectName());
+                fileSize, request.getFileType(), request.getThumbnailObjectName());
 
         if (request.getSubjectIds() != null && !request.getSubjectIds().isEmpty()) {
             taxonomyService.assignSubjects(saved, request.getSubjectIds());

@@ -118,18 +118,21 @@ public class DocumentController {
     }
 
     @GetMapping("/{id}/download")
-    @Operation(summary = "Download document file", description = "Download the file associated with a document")
+    @Operation(summary = "Download document file", description = "Get presigned download URL for document file. Default returns JSON with download URL. If redirect=true, directly redirects to MinIO via HTTP 302.")
     @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
-    public ResponseEntity<Void> downloadDocument(@PathVariable Long id) {
-        DocumentResponse document = documentApplicationService.getDocumentById(id);
+    public ResponseEntity<?> downloadDocument(
+            @PathVariable Long id,
+            @RequestParam(value = "redirect", defaultValue = "false") boolean redirect) {
+        com.studydocs.manager.dto.document.DocumentDownloadUrlResponse response =
+                documentApplicationService.getDocumentDownloadUrl(id);
 
-        if (document.getObjectName() == null || document.getObjectName().isEmpty()) {
-            throw new NotFoundException("Document file not found", "DOCUMENT_FILE_NOT_FOUND", "objectName");
+        if (redirect) {
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header(HttpHeaders.LOCATION, response.getDownloadUrl())
+                    .build();
         }
 
-        return ResponseEntity.status(HttpStatus.FOUND)
-                .header(HttpHeaders.LOCATION, "/api/files/download?objectName=" + document.getObjectName())
-                .build();
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/trash")

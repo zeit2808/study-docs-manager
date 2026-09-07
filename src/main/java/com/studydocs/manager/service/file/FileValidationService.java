@@ -34,6 +34,39 @@ public class FileValidationService {
         }
     }
 
+    public void validateDirectUploadParams(
+            String fileName,
+            String contentType,
+            Long fileSize,
+            List<String> allowedTypes,
+            List<String> allowedExtensions,
+            long maxFileSize,
+            String field) {
+        if (fileName == null || fileName.isBlank()) {
+            throw new BadRequestException("File name cannot be empty", "FILE_NAME_EMPTY", field);
+        }
+
+        if (fileSize == null || fileSize <= 0) {
+            throw new BadRequestException("File size must be greater than 0", "FILE_SIZE_INVALID", field);
+        }
+
+        if (fileSize > maxFileSize) {
+            throw new BadRequestException("File size exceeds maximum allowed size of " + (maxFileSize / (1024 * 1024)) + "MB", "FILE_SIZE_EXCEEDED", field);
+        }
+
+        if (contentType == null || !allowedTypes.contains(contentType.toLowerCase(Locale.ROOT))) {
+            throw new BadRequestException("Invalid content type. Allowed types: " + allowedTypes, "INVALID_FILE_TYPE", field);
+        }
+
+        if (allowedExtensions != null && !allowedExtensions.isEmpty()) {
+            String normalizedFileName = fileName.toLowerCase(Locale.ROOT);
+            boolean validExtension = allowedExtensions.stream().anyMatch(normalizedFileName::endsWith);
+            if (!validExtension) {
+                throw new BadRequestException("Invalid file extension. Allowed extensions: " + allowedExtensions, "INVALID_FILE_EXTENSION", field);
+            }
+        }
+    }
+
     public void validateImageExtension(
             MultipartFile file,
             List<String> allowedExtensions,

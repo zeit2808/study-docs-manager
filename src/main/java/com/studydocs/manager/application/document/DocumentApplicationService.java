@@ -43,6 +43,10 @@ public class DocumentApplicationService {
         return documentQueryUseCase.getDocumentById(id);
     }
 
+    public com.studydocs.manager.dto.document.DocumentDownloadUrlResponse getDocumentDownloadUrl(Long id) {
+        return documentQueryUseCase.getDocumentDownloadUrl(id);
+    }
+
     public DocumentResponse updateDocument(Long id, DocumentUpdateRequest request) {
         return updateDocumentUseCase.execute(id, request);
     }
