@@ -7,10 +7,11 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "password_reset_tokens", indexes = {
         @Index(name = "idx_prt_user_created", columnList = "user_id, created_at"),
-        @Index(name = "idx_prt_user_otp", columnList = "user_id, otp"),
+        @Index(name = "idx_prt_user_expiry", columnList = "user_id, expiry_time"),
         @Index(name = "idx_prt_expiry_time", columnList = "expiry_time")
 })
 public class PasswordResetToken {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -19,8 +20,12 @@ public class PasswordResetToken {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(nullable = false, length = 20)
-    private String otp;
+    // BCrypt hash, tuyệt đối không phải OTP gốc.
+    @Column(name = "otp_hash", nullable = false, length = 100)
+    private String otpHash;
+
+    @Column(name = "attempt_count", nullable = false)
+    private int attemptCount = 0;
 
     @Column(name = "expiry_time", nullable = false)
     private LocalDateTime expiredAt;
@@ -31,10 +36,11 @@ public class PasswordResetToken {
     public PasswordResetToken() {
     }
 
-    public PasswordResetToken(User user, String otp, LocalDateTime expiredAt) {
-        this.otp = otp;
+    public PasswordResetToken(User user, String otpHash, LocalDateTime expiredAt) {
         this.user = user;
+        this.otpHash = otpHash;
         this.expiredAt = expiredAt;
+        this.createdAt = LocalDateTime.now();
     }
 
     @PrePersist
@@ -48,39 +54,27 @@ public class PasswordResetToken {
         return id;
     }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
-
     public User getUser() {
         return user;
     }
 
-    public void setUser(User user) {
-        this.user = user;
+    public String getOtpHash() {
+        return otpHash;
     }
 
-    public String getOtp() {
-        return otp;
+    public int getAttemptCount() {
+        return attemptCount;
     }
 
-    public void setOtp(String otp) {
-        this.otp = otp;
+    public void incrementAttemptCount() {
+        attemptCount++;
     }
 
     public LocalDateTime getExpiredAt() {
         return expiredAt;
     }
 
-    public void setExpiredAt(LocalDateTime expiredAt) {
-        this.expiredAt = expiredAt;
-    }
-
     public LocalDateTime getCreatedAt() {
         return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
     }
 }

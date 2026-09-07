@@ -1,6 +1,8 @@
 package com.studydocs.manager.security.jwt;
 
-import io.jsonwebtoken.*;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
@@ -24,50 +26,77 @@ public class JwtTokenProvider {
     private long jwtExpiration;
 
     public SecretKey getSigningKey() {
-        byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
-        return Keys.hmacShaKeyFor(keyBytes);
+        return Keys.hmacShaKeyFor(
+                jwtSecret.getBytes(StandardCharsets.UTF_8)
+        );
     }
 
-    public String generateToken(Authentication authentication) {
-        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        String username = userDetails.getUsername();
-        String roles = userDetails.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .filter(Objects::nonNull)
-                .collect(Collectors.joining(","));
+    public String generateToken(
+            String username,
+            String roles,
+            long tokenVersion
+    ) {
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + jwtExpiration);
+        Date expiration = new Date(now.getTime() + jwtExpiration);
+
         return Jwts.builder()
                 .subject(username)
                 .claim("roles", roles)
+                .claim("tokenVersion", tokenVersion)
                 .issuedAt(now)
-                .expiration(expiryDate)
+                .expiration(expiration)
                 .signWith(getSigningKey())
                 .compact();
     }
 
+    public String generateToken(
+            Authentication authentication,
+            long tokenVersion
+    ) {
+        UserDetails userDetails =
+                (UserDetails) authentication.getPrincipal();
+
+        String roles = userDetails.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .filter(Objects::nonNull)
+                .collect(Collectors.joining(","));
+
+        return generateToken(userDetails.getUsername(), roles, tokenVersion);
+    }
+
     public String getUsernameFromToken(String token) {
-        Claims claims = Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
-        return claims.getSubject();
+        return getClaims(token).getSubject();
+    }
+
+    public long getTokenVersionFromToken(String token) {
+        Number version = getClaims(token)
+                .get("tokenVersion", Number.class);
+
+        if (version == null) {
+            return -1L;
+        }
+
+        return version.longValue();
     }
 
     public boolean validateToken(String token) {
         try {
-            Jwts.parser()
-                    .verifyWith(getSigningKey())
-                    .build()
-                    .parseSignedClaims(token);
+            getClaims(token);
             return true;
-        } catch (JwtException | IllegalArgumentException e) {
+        } catch (JwtException | IllegalArgumentException ex) {
             return false;
         }
     }
 
     public long getExpirationMillis() {
         return jwtExpiration;
+    }
+
+    private Claims getClaims(String token) {
+        return Jwts.parser()
+                .verifyWith(getSigningKey())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
     }
 }

@@ -43,7 +43,7 @@ public class AuthApplicationService {
         forgotPasswordUseCase.execute(request);
     }
 
-    public void resetPassword(ResetPasswordRequest request) {
-        resetPasswordUseCase.execute(request);
+    public JwtResponse resetPassword(ResetPasswordRequest request) {
+        return resetPasswordUseCase.execute(request);
     }
 }

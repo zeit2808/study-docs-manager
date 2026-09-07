@@ -145,10 +145,6 @@ public class AuthController {
     }
 
     @PostMapping("/forgot-password")
-    @Operation(
-            summary = "Forgot Password",
-            description = "Send OTP to user's email for password reset"
-    )
     public ResponseEntity<Map<String, Object>> forgotPassword(
             @Valid @RequestBody ForgotPasswordRequest request
     ) {
@@ -156,20 +152,59 @@ public class AuthController {
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("status", HttpStatus.OK.value());
-        body.put("message", "OTP has been sent to your email. It expires in 5 minutes.");
+        body.put(
+                "message",
+                "If an account exists for this email, a reset code will be sent."
+        );
 
         return ResponseEntity.ok(body);
     }
 
+    /**
+     * Dành cho Browser / SPA:
+     * Xác thực OTP, cập nhật mật khẩu mới và tự động đăng nhập (Auto-login).
+     * JWT mới được nhét trực tiếp vào HttpOnly cookie, trả về thông tin user.
+     */
     @PostMapping("/reset-password")
     @Operation(
-            summary = "Reset Password",
-            description = "Reset password using OTP sent to email"
+            summary = "Reset Password and Auto-Login (Browser)",
+            description = "Reset password using OTP sent to email and automatically authenticate user via HttpOnly cookie"
     )
-    public ResponseEntity<String> resetPassword(
+    public ResponseEntity<LoginResponse> resetPassword(
             @Valid @RequestBody ResetPasswordRequest request
     ) {
-        authApplicationService.resetPassword(request);
-        return ResponseEntity.ok("Password has been reset successfully.");
+        JwtResponse authResult = authApplicationService.resetPassword(request);
+
+        ResponseCookie jwtCookie = jwtCookieService.generateJwtCookie(
+                authResult.getToken(),
+                jwtTokenProvider.getExpirationMillis()
+        );
+
+        LoginResponse response = new LoginResponse(
+                authResult.getId(),
+                authResult.getUsername(),
+                authResult.getEmail(),
+                authResult.getRole()
+        );
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
+                .body(response);
+    }
+
+    /**
+     * Dành cho Swagger UI, Postman và ứng dụng mobile:
+     * Xác thực OTP, đổi mật khẩu và trả về JWT trong JSON để client dùng Authorization: Bearer <token>.
+     */
+    @PostMapping("/reset-password/token")
+    @Operation(
+            summary = "Reset Password and Return Token",
+            description = "Reset password using OTP sent to email and return JWT for Bearer authentication"
+    )
+    public ResponseEntity<JwtResponse> resetPasswordForToken(
+            @Valid @RequestBody ResetPasswordRequest request
+    ) {
+        JwtResponse response = authApplicationService.resetPassword(request);
+        return ResponseEntity.ok(response);
     }
 }

@@ -75,6 +75,8 @@ public class UserAdminUseCase {
         before.setPhone(user.getPhone());
         before.setEnabled(user.getEnabled());
 
+        boolean invalidateExistingTokens = false;
+
         if (updateRequest.getEmail() != null && !updateRequest.getEmail().isEmpty()) {
             if (!user.getEmail().equals(updateRequest.getEmail()) &&
                     userRepository.existsByEmail(updateRequest.getEmail())) {
@@ -84,6 +86,7 @@ public class UserAdminUseCase {
         }
         if (updateRequest.getPassword() != null && !updateRequest.getPassword().isEmpty()) {
             user.setPassword(passwordEncoder.encode(updateRequest.getPassword()));
+            invalidateExistingTokens = true;
         }
         if (updateRequest.getFullname() != null) {
             user.setFullname(updateRequest.getFullname());
@@ -92,6 +95,9 @@ public class UserAdminUseCase {
             user.setPhone(updateRequest.getPhone());
         }
         if (updateRequest.getEnabled() != null) {
+            if (!updateRequest.getEnabled().equals(user.getEnabled())) {
+                invalidateExistingTokens = true;
+            }
             user.setEnabled(updateRequest.getEnabled());
         }
         if (updateRequest.getRole() != null && !updateRequest.getRole().isBlank()) {
@@ -100,7 +106,14 @@ public class UserAdminUseCase {
                             "Role " + updateRequest.getRole() + " not found",
                             "ROLE_NOT_FOUND",
                             "role"));
+            if (!role.getId().equals(user.getRole().getId())) {
+                invalidateExistingTokens = true;
+            }
             user.setRole(role);
+        }
+
+        if (invalidateExistingTokens) {
+            user.incrementTokenVersion();
         }
 
         User updatedUser = userRepository.save(user);

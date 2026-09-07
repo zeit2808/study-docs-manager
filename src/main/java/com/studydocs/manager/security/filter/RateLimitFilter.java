@@ -1,24 +1,31 @@
 package com.studydocs.manager.security.filter;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studydocs.manager.config.RateLimitProperties;
+import com.studydocs.manager.dto.common.ErrorResponse;
 import com.studydocs.manager.security.service.RateLimiterService;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 
 @Component
 public class RateLimitFilter implements Filter {
 
     private final RateLimiterService rateLimiterService;
     private final RateLimitProperties props;
+    private final ObjectMapper objectMapper;
 
     public RateLimitFilter(RateLimiterService rateLimiterService,
-                           RateLimitProperties props) {
+                           RateLimitProperties props,
+                           ObjectMapper objectMapper) {
         this.rateLimiterService = rateLimiterService;
         this.props = props;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -40,13 +47,26 @@ public class RateLimitFilter implements Filter {
             limit = props.getRegisterPerMinute();
         } else if (path.startsWith("/api/auth/forgot-password")) {
             limit = props.getForgotPasswordPerMinute();
+        } else if (path.startsWith("/api/auth/reset-password")) {
+            limit = props.getResetPasswordPerMinute();
         }
 
         if (limit != null) {
             boolean allowed = rateLimiterService.tryConsume(key, limit);
             if (!allowed) {
-                res.setStatus(429);
-                res.getWriter().write("Too many requests, please try again later.");
+                res.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+                res.setContentType("application/json;charset=UTF-8");
+
+                ErrorResponse errorResponse = new ErrorResponse(
+                        HttpStatus.TOO_MANY_REQUESTS.value(),
+                        "Too Many Requests",
+                        "Too many requests, please try again later.",
+                        path
+                );
+                errorResponse.setCode("IP_RATE_LIMIT_EXCEEDED");
+                errorResponse.setTimestamp(LocalDateTime.now());
+
+                res.getWriter().write(objectMapper.writeValueAsString(errorResponse));
                 return;
             }
         }

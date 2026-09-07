@@ -1,169 +1,224 @@
 package com.studydocs.manager.service.auth;
 
+import com.studydocs.manager.config.RateLimitProperties;
 import com.studydocs.manager.dto.auth.ForgotPasswordRequest;
 import com.studydocs.manager.dto.auth.ResetPasswordRequest;
 import com.studydocs.manager.entity.PasswordResetToken;
 import com.studydocs.manager.entity.User;
 import com.studydocs.manager.exception.BadRequestException;
-import com.studydocs.manager.exception.NotFoundException;
-import com.studydocs.manager.exception.ServiceUnavailableException;
 import com.studydocs.manager.exception.TooManyRequestsException;
 import com.studydocs.manager.repository.PasswordResetTokenRepository;
 import com.studydocs.manager.repository.UserRepository;
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
-import jakarta.transaction.Transactional;
+import com.studydocs.manager.security.service.RateLimiterService;
+import com.studydocs.manager.service.mail.EmailService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
-import java.util.Random;
 
 @Service
 public class PasswordResetService {
 
-    private static final Logger log = LoggerFactory.getLogger(PasswordResetService.class);
+    private static final Logger log =
+            LoggerFactory.getLogger(PasswordResetService.class);
+
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
+    private static final int OTP_LENGTH = 8;
+    private static final int OTP_MAX_ATTEMPTS = 5;
+    private static final int OTP_EXPIRY_MINUTES = 5;
 
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
-    private final JavaMailSender mailSender;
+    private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
+    private final RateLimiterService rateLimiterService;
+    private final RateLimitProperties rateLimitProperties;
+    private final TransactionTemplate transactionTemplate;
 
-    public PasswordResetService(UserRepository userRepository,
+    public PasswordResetService(
+            UserRepository userRepository,
             PasswordResetTokenRepository passwordResetTokenRepository,
-            JavaMailSender mailSender,
-            PasswordEncoder passwordEncoder) {
+            EmailService emailService,
+            PasswordEncoder passwordEncoder,
+            RateLimiterService rateLimiterService,
+            RateLimitProperties rateLimitProperties,
+            TransactionTemplate transactionTemplate
+    ) {
         this.userRepository = userRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
-        this.mailSender = mailSender;
+        this.emailService = emailService;
         this.passwordEncoder = passwordEncoder;
+        this.rateLimiterService = rateLimiterService;
+        this.rateLimitProperties = rateLimitProperties;
+        this.transactionTemplate = transactionTemplate;
     }
 
-    @Transactional
+    /**
+     * Luôn kết thúc bình thường nếu email không tồn tại (chống email enumeration).
+     * Nếu email tồn tại:
+     * - Áp dụng Resend Cooldown (mặc định 60s giữa 2 lần gửi liên tiếp). Nếu vi phạm -> ném TooManyRequestsException (HTTP 429).
+     * - Áp dụng giới hạn số lần gửi trong 1 giờ (mặc định 3 lần/giờ). Nếu vi phạm -> ném TooManyRequestsException (HTTP 429).
+     * - Nếu hợp lệ -> hủy token cũ, tạo OTP mới và gửi email bất đồng bộ ngầm.
+     */
     public void sendOtp(ForgotPasswordRequest request) {
-        Optional<User> optionalUser = userRepository.findByEmail(request.getEmail());
-        if (optionalUser.isEmpty()) {
-            log.warn("Forgot-password: email not found -> [{}]", request.getEmail());
-            throw new NotFoundException(
-                    "No account is associated with this email",
-                    "EMAIL_NOT_FOUND",
-                    "email");
-        }
+        String email = request.getEmail().trim();
 
-        User user = optionalUser.get();
+        OtpDispatchPayload payload = transactionTemplate.execute(status -> {
+            Optional<User> userOptional = userRepository.findByEmailForUpdate(email);
 
-        Optional<PasswordResetToken> activeToken =
-                passwordResetTokenRepository.findTop1ByUserAndExpiredAtAfterOrderByCreatedAtDesc(
-                        user, LocalDateTime.now());
+            // Không throw lỗi nếu email không tồn tại (chống email enumeration)
+            if (userOptional.isEmpty()) {
+                return null;
+            }
 
-        if (activeToken.isPresent()) {
-            long secondsLeft = java.time.Duration.between(
-                    LocalDateTime.now(), activeToken.get().getExpiredAt()).getSeconds();
-            long minutesLeft = (secondsLeft + 59) / 60;
-            throw new TooManyRequestsException(
-                    "An OTP was already sent. Please wait " + minutesLeft
-                            + " minute(s) before requesting a new one.",
-                    "OTP_COOLDOWN",
-                    null);
-        }
-        passwordResetTokenRepository.deleteByUser(user);
-        String otp = generateOtp();
-        LocalDateTime expiredAt = LocalDateTime.now().plusMinutes(5);
-        passwordResetTokenRepository.save(new PasswordResetToken(user, otp, expiredAt));
+            User user = userOptional.get();
+            LocalDateTime now = LocalDateTime.now();
 
-        try {
-            sendOtpEmail(user.getEmail(), otp);
-            log.info("Forgot-password: OTP sent -> [{}], expires at {}", user.getEmail(), expiredAt);
-        } catch (Exception e) {
-            log.error("Forgot-password: failed to send email -> [{}]", user.getEmail(), e);
-            throw new ServiceUnavailableException(
-                    "Failed to send OTP email, please try again later",
-                    "EMAIL_SEND_FAILED",
-                    "email");
+            // 1. Kiểm tra Resend Cooldown giữa các lần gửi liên tiếp (ví dụ 60 giây)
+            Optional<PasswordResetToken> latestToken =
+                    passwordResetTokenRepository.findTop1ByUserOrderByCreatedAtDesc(user);
+
+            if (latestToken.isPresent()) {
+                LocalDateTime createdAt = latestToken.get().getCreatedAt();
+                if (createdAt != null) {
+                    long secondsSinceLast = Duration.between(createdAt, now).getSeconds();
+                    int cooldownSeconds = rateLimitProperties.getForgotPasswordResendCooldownSeconds();
+                    if (secondsSinceLast < cooldownSeconds) {
+                        long remainingSeconds = cooldownSeconds - secondsSinceLast;
+                        throw new TooManyRequestsException(
+                                "Please wait " + remainingSeconds + " seconds before requesting a new code.",
+                                "RESEND_COOLDOWN",
+                                "email",
+                                remainingSeconds
+                        );
+                    }
+                }
+            }
+
+            // 2. Kiểm tra giới hạn số lần gửi trong 1 giờ (ví dụ tối đa 3 lần/giờ)
+            boolean underEmailLimit = rateLimiterService.tryConsume(
+                    "forgot-password-email:" + user.getId(),
+                    rateLimitProperties.getForgotPasswordPerEmailPerHour(),
+                    Duration.ofHours(1)
+            );
+
+            if (!underEmailLimit) {
+                throw new TooManyRequestsException(
+                        "You have requested password reset too many times. Please try again in 1 hour.",
+                        "RATE_LIMIT_EXCEEDED",
+                        "email"
+                );
+            }
+
+            passwordResetTokenRepository.deleteByUser(user);
+
+            String otp = generateOtp();
+            String otpHash = passwordEncoder.encode(otp);
+            LocalDateTime expiredAt = now.plusMinutes(OTP_EXPIRY_MINUTES);
+
+            passwordResetTokenRepository.save(
+                    new PasswordResetToken(user, otpHash, expiredAt)
+            );
+
+            return new OtpDispatchPayload(user.getId(), user.getEmail(), otp);
+        });
+
+        if (payload != null) {
+            // Gửi email bất đồng bộ ngầm
+            emailService.sendOtpEmailAsync(payload.email(), payload.otp(), OTP_EXPIRY_MINUTES);
+            log.info("Password reset code generated and async email dispatched for userId={}", payload.userId());
         }
     }
 
     @Transactional
-    public void resetPassword(ResetPasswordRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new NotFoundException("User not found", "USER_NOT_FOUND", "email"));
+    public User resetPassword(ResetPasswordRequest request) {
+        if (!request.getNewPassword().equals(request.getConfirmNewPassword())) {
+            throw new BadRequestException(
+                    "Password confirmation does not match",
+                    "PASSWORD_CONFIRMATION_MISMATCH",
+                    "confirmNewPassword"
+            );
+        }
+
+        Optional<User> userOptional =
+                userRepository.findByEmailForUpdate(request.getEmail().trim());
+
+        if (userOptional.isEmpty()) {
+            throw invalidResetCode();
+        }
+
+        User user = userOptional.get();
 
         PasswordResetToken token = passwordResetTokenRepository
-                .findTop1ByUserAndOtpOrderByCreatedAtDesc(user, request.getOtp())
-                .orElseThrow(() -> new BadRequestException("Invalid OTP", "INVALID_OTP", "otp"));
+                .findTop1ByUserAndExpiredAtAfterOrderByCreatedAtDesc(
+                        user,
+                        LocalDateTime.now()
+                )
+                .orElseThrow(this::invalidResetCode);
 
-        if (token.getExpiredAt().isBefore(LocalDateTime.now())) {
-            throw new BadRequestException("OTP expired", "OTP_EXPIRED", "otp");
+        if (token.getAttemptCount() >= OTP_MAX_ATTEMPTS) {
+            passwordResetTokenRepository.deleteByUser(user);
+            throw invalidResetCode();
+        }
+
+        if (!passwordEncoder.matches(request.getOtp(), token.getOtpHash())) {
+            token.incrementAttemptCount();
+
+            if (token.getAttemptCount() >= OTP_MAX_ATTEMPTS) {
+                passwordResetTokenRepository.deleteByUser(user);
+            } else {
+                passwordResetTokenRepository.save(token);
+            }
+
+            throw invalidResetCode();
+        }
+
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new BadRequestException(
+                    "New password must be different from current password",
+                    "SAME_PASSWORD",
+                    "newPassword"
+            );
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
-        userRepository.save(user);
+
+        // Vô hiệu tất cả JWT cũ ngay sau đổi password.
+        user.incrementTokenVersion();
+
+        User savedUser = userRepository.save(user);
         passwordResetTokenRepository.deleteByUser(user);
+
+        // Gửi email thông báo mật khẩu thay đổi qua luồng ngầm bất đồng bộ
+        emailService.sendPasswordChangedEmailAsync(user.getEmail());
+
+        return savedUser;
+    }
+
+    private BadRequestException invalidResetCode() {
+        return new BadRequestException(
+                "Invalid or expired reset code",
+                "INVALID_RESET_CODE",
+                "otp"
+        );
     }
 
     private String generateOtp() {
-        Random random = new Random();
-        int code = 100000 + random.nextInt(900000);
-        return String.valueOf(code);
+        int min = (int) Math.pow(10, OTP_LENGTH - 1);
+        int maxExclusive = (int) Math.pow(10, OTP_LENGTH);
+
+        return String.valueOf(
+                min + SECURE_RANDOM.nextInt(maxExclusive - min)
+        );
     }
 
-    private void sendOtpEmail(String toEmail, String otp) throws MessagingException {
-        MimeMessage message = mailSender.createMimeMessage();
-        MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-        String subject = "Reset Your Password - OTP Code";
-        String content = """
-                <!DOCTYPE html>
-                <html>
-                <head>
-                <meta charset="UTF-8">
-                </head>
-                <body style="margin:0;padding:0;background-color:#f4f6f8;font-family:Arial,sans-serif;">
-                    <div style="max-width:520px;margin:40px auto;background:#ffffff;border-radius:10px;
-                                box-shadow:0 4px 12px rgba(0,0,0,0.1);overflow:hidden;">
-                        <div style="background:#2d89ef;color:white;padding:16px 20px;font-size:20px;font-weight:bold;">
-                            Password Reset
-                        </div>
-                        <div style="padding:24px;">
-                            <p style="font-size:14px;color:#333;">Hello,</p>
-                            <p style="font-size:14px;color:#333;">
-                                We received a request to reset your password.
-                            </p>
-                            <p style="font-size:14px;color:#333;">
-                                Use the OTP code below to continue:
-                            </p>
-                            <div style="text-align:center;margin:24px 0;">
-                                <span style="display:inline-block;padding:12px 24px;
-                                             font-size:30px;font-weight:bold;
-                                             letter-spacing:4px;
-                                             color:#2d89ef;
-                                             border:2px dashed #2d89ef;
-                                             border-radius:8px;">
-                                    %s
-                                </span>
-                            </div>
-                            <p style="font-size:14px;color:#333;">
-                                This code will expire in <b>5 minutes</b>.
-                            </p>
-                            <p style="font-size:14px;color:#333;">
-                                If you did not request this, you can safely ignore this email.
-                            </p>
-                            <hr style="border:none;border-top:1px solid #eee;margin:20px 0;"/>
-                            <p style="font-size:12px;color:#888;text-align:center;">
-                                Never share your OTP with anyone.
-                            </p>
-                        </div>
-                    </div>
-                </body>
-                </html>
-                """.formatted(otp);
-        helper.setTo(toEmail);
-        helper.setSubject(subject);
-        helper.setText(content, true);
-        mailSender.send(message);
-    }
+    private record OtpDispatchPayload(Long userId, String email, String otp) {}
 }
