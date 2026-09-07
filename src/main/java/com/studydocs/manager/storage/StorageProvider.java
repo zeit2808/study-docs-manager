@@ -57,6 +57,24 @@ public interface StorageProvider {
     String generatePresignedUrl(String objectName, int expirationMinutes) throws IOException;
 
     /**
+     * Generate presigned URL có thời hạn để tải lên (PUT) file trực tiếp từ Client
+     * 
+     * @param objectName        Object name
+     * @param contentType       MIME type của file
+     * @param expirationMinutes Thời gian hết hạn (phút)
+     * @return Presigned Upload URL
+     */
+    String generatePresignedUploadUrl(String objectName, String contentType, int expirationMinutes) throws IOException;
+
+    /**
+     * Lấy kích thước thực tế của file trên storage (bytes)
+     * 
+     * @param objectName Object name
+     * @return File size in bytes
+     */
+    long getObjectSize(String objectName) throws IOException;
+
+    /**
      * Kiểm tra file có tồn tại không
      * 
      * @param objectName Object name

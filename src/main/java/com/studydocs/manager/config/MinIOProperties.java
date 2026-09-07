@@ -12,6 +12,9 @@ public class MinIOProperties {
     private String bucketName;
     private String documentsFolder;
     private String thumbnailsFolder;
+    private String externalEndpoint;
+    private int presignedUploadExpiryMinutes = 15;
+    private int presignedDownloadExpiryMinutes = 30;
 
     public String getEndpoint() {
         return endpoint;
@@ -19,6 +22,33 @@ public class MinIOProperties {
 
     public void setEndpoint(String endpoint) {
         this.endpoint = endpoint;
+    }
+
+    public String getExternalEndpoint() {
+        if (externalEndpoint != null && !externalEndpoint.isBlank()) {
+            return externalEndpoint;
+        }
+        return endpoint;
+    }
+
+    public void setExternalEndpoint(String externalEndpoint) {
+        this.externalEndpoint = externalEndpoint;
+    }
+
+    public int getPresignedUploadExpiryMinutes() {
+        return presignedUploadExpiryMinutes;
+    }
+
+    public void setPresignedUploadExpiryMinutes(int presignedUploadExpiryMinutes) {
+        this.presignedUploadExpiryMinutes = presignedUploadExpiryMinutes;
+    }
+
+    public int getPresignedDownloadExpiryMinutes() {
+        return presignedDownloadExpiryMinutes;
+    }
+
+    public void setPresignedDownloadExpiryMinutes(int presignedDownloadExpiryMinutes) {
+        this.presignedDownloadExpiryMinutes = presignedDownloadExpiryMinutes;
     }
 
     public String getAccessKey() {

@@ -32,4 +32,15 @@ public class MinIOConfig {
                 .credentials(properties.getAccessKey(), properties.getSecretKey())
                 .build();
     }
+
+    @Bean(name = "presignMinioClient")
+    public MinioClient presignMinioClient(MinIOProperties properties) {
+        String external = properties.getExternalEndpoint();
+        logger.info("Creating presignMinioClient bean with endpoint: {}", external);
+
+        return MinioClient.builder()
+                .endpoint(external)
+                .credentials(properties.getAccessKey(), properties.getSecretKey())
+                .build();
+    }
 }

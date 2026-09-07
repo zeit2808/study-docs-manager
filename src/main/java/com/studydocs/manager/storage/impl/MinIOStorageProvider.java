@@ -7,6 +7,7 @@ import io.minio.*;
 import io.minio.http.Method;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -29,10 +30,15 @@ public class MinIOStorageProvider implements StorageProvider {
     private static final Logger logger = LoggerFactory.getLogger(MinIOStorageProvider.class);
 
     private final MinioClient minioClient;
+    private final MinioClient presignMinioClient;
     private final MinIOProperties minIOProperties;
 
-    public MinIOStorageProvider(MinioClient minioClient, MinIOProperties minIOProperties) {
+    public MinIOStorageProvider(
+            MinioClient minioClient,
+            @Qualifier("presignMinioClient") MinioClient presignMinioClient,
+            MinIOProperties minIOProperties) {
         this.minioClient = minioClient;
+        this.presignMinioClient = presignMinioClient;
         this.minIOProperties = minIOProperties;
     }
 
@@ -142,7 +148,7 @@ public class MinIOStorageProvider implements StorageProvider {
     @Override
     public String generatePresignedUrl(String objectName, int expirationMinutes) throws IOException {
         try {
-            return minioClient.getPresignedObjectUrl(
+            return presignMinioClient.getPresignedObjectUrl(
                     GetPresignedObjectUrlArgs.builder()
                             .method(Method.GET)
                             .bucket(minIOProperties.getBucketName())
@@ -151,8 +157,39 @@ public class MinIOStorageProvider implements StorageProvider {
                             .build());
 
         } catch (Exception e) {
-            logger.error("Error generating presigned URL: {}", e.getMessage(), e);
+            logger.error("Error generating presigned GET URL: {}", e.getMessage(), e);
             throw new IOException("Failed to generate presigned URL", e);
+        }
+    }
+
+    @Override
+    public String generatePresignedUploadUrl(String objectName, String contentType, int expirationMinutes) throws IOException {
+        try {
+            GetPresignedObjectUrlArgs.Builder builder = GetPresignedObjectUrlArgs.builder()
+                    .method(Method.PUT)
+                    .bucket(minIOProperties.getBucketName())
+                    .object(objectName)
+                    .expiry(expirationMinutes, TimeUnit.MINUTES);
+
+            return presignMinioClient.getPresignedObjectUrl(builder.build());
+        } catch (Exception e) {
+            logger.error("Error generating presigned PUT URL: {}", e.getMessage(), e);
+            throw new IOException("Failed to generate presigned upload URL", e);
+        }
+    }
+
+    @Override
+    public long getObjectSize(String objectName) throws IOException {
+        try {
+            StatObjectResponse stat = minioClient.statObject(
+                    StatObjectArgs.builder()
+                            .bucket(minIOProperties.getBucketName())
+                            .object(objectName)
+                            .build());
+            return stat.size();
+        } catch (Exception e) {
+            logger.error("Error getting object size for {}: {}", objectName, e.getMessage(), e);
+            throw new IOException("Failed to get object size from MinIO", e);
         }
     }
 

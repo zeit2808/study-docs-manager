@@ -1,27 +1,25 @@
 package com.studydocs.manager.application.file;
 
+import com.studydocs.manager.config.MinIOProperties;
 import com.studydocs.manager.config.StorageProperties;
 import com.studydocs.manager.dto.file.FileDeleteResponse;
-import com.studydocs.manager.dto.file.FileDownloadResult;
 import com.studydocs.manager.dto.file.FileMetadataSummary;
-import com.studydocs.manager.dto.file.FileUploadResponse;
+import com.studydocs.manager.dto.file.PresignedUploadRequest;
+import com.studydocs.manager.dto.file.PresignedUploadResponse;
+import com.studydocs.manager.exception.BadRequestException;
 import com.studydocs.manager.exception.NotFoundException;
 import com.studydocs.manager.service.file.FileValidationService;
 import com.studydocs.manager.service.file.TikaMetadataService;
 import com.studydocs.manager.storage.StorageProvider;
-import com.studydocs.manager.storage.StoredFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.io.InputStreamResource;
-import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
+import java.io.InputStream;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class FileUploadApplicationService {
@@ -38,6 +36,9 @@ public class FileUploadApplicationService {
             "application/vnd.openxmlformats-officedocument.presentationml.presentation",
             "text/plain");
 
+    private static final List<String> ALLOWED_DOCUMENT_EXTENSIONS = Arrays.asList(
+            ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt");
+
     private static final List<String> ALLOWED_IMAGE_TYPES = Arrays.asList(
             "image/jpeg",
             "image/jpg",
@@ -52,119 +53,96 @@ public class FileUploadApplicationService {
             ".gif",
             ".webp");
 
-    private static final long MAX_FILE_SIZE = 50 * 1024 * 1024;
+    private static final long MAX_DOCUMENT_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+    private static final long MAX_IMAGE_FILE_SIZE = 10 * 1024 * 1024;   // 10MB
 
     private final StorageProvider storageProvider;
     private final StorageProperties storageProperties;
-    private final TikaMetadataService tikaMetadataService;
+    private final MinIOProperties minIOProperties;
     private final FileValidationService fileValidationService;
+    private final TikaMetadataService tikaMetadataService;
 
     public FileUploadApplicationService(
             StorageProvider storageProvider,
             StorageProperties storageProperties,
-            TikaMetadataService tikaMetadataService,
-            FileValidationService fileValidationService) {
+            MinIOProperties minIOProperties,
+            FileValidationService fileValidationService,
+            TikaMetadataService tikaMetadataService) {
         this.storageProvider = storageProvider;
         this.storageProperties = storageProperties;
-        this.tikaMetadataService = tikaMetadataService;
+        this.minIOProperties = minIOProperties;
         this.fileValidationService = fileValidationService;
+        this.tikaMetadataService = tikaMetadataService;
     }
 
-    public FileUploadResponse uploadDocument(MultipartFile file, boolean extractMetadata) throws IOException {
-        String originalFileName = file.getOriginalFilename();
-        fileValidationService.validateContentTypeAndSize(
-                file,
-                ALLOWED_DOCUMENT_TYPES,
-                MAX_FILE_SIZE,
-                "Invalid file type. Allowed types: " + ALLOWED_DOCUMENT_TYPES,
-                "INVALID_FILE_TYPE",
-                "File size exceeds maximum allowed size of 50MB",
-                "FILE_SIZE_EXCEEDED",
-                "file");
+    /**
+     * Generate Presigned Upload URL cho Client tải file trực tiếp lên Storage
+     */
+    public PresignedUploadResponse generatePresignedUploadUrl(PresignedUploadRequest request) throws IOException {
+        String folderType = request.getFolderType() != null ? request.getFolderType().toUpperCase() : "DOCUMENTS";
+        String folder;
+        long maxSize;
+        List<String> allowedTypes;
+        List<String> allowedExtensions;
 
-        logger.info("Uploading document: {}, size: {}, extractMetadata: {}", originalFileName, file.getSize(),
-                extractMetadata);
-
-        FileMetadataSummary metadata = null;
-        if (extractMetadata) {
-            try {
-                metadata = tikaMetadataService.extractMetadataSummary(file);
-                logger.debug("Metadata extracted - Title: {}, Pages: {}", metadata.getTitle(), metadata.getPageCount());
-            } catch (Exception e) {
-                logger.warn("Failed to extract metadata from {}: {} (Type: {})",
-                        originalFileName, e.getMessage(), e.getClass().getSimpleName());
-            }
+        switch (folderType) {
+            case "THUMBNAILS":
+                folder = storageProperties.getThumbnailsFolder();
+                maxSize = MAX_IMAGE_FILE_SIZE;
+                allowedTypes = ALLOWED_IMAGE_TYPES;
+                allowedExtensions = ALLOWED_IMAGE_EXTENSIONS;
+                break;
+            case "AVATARS":
+                folder = storageProperties.getAvatarsFolder();
+                maxSize = MAX_IMAGE_FILE_SIZE;
+                allowedTypes = ALLOWED_IMAGE_TYPES;
+                allowedExtensions = ALLOWED_IMAGE_EXTENSIONS;
+                break;
+            case "DOCUMENTS":
+            default:
+                folder = storageProperties.getDocumentsFolder();
+                maxSize = MAX_DOCUMENT_FILE_SIZE;
+                allowedTypes = ALLOWED_DOCUMENT_TYPES;
+                allowedExtensions = ALLOWED_DOCUMENT_EXTENSIONS;
+                break;
         }
 
-        StoredFile storedFile = storageProvider.uploadFile(file, storageProperties.getDocumentsFolder());
-
-        FileUploadResponse response = new FileUploadResponse();
-        response.setFileUrl(storedFile.fileUrl());
-        response.setFileName(originalFileName);
-        response.setFileSize(file.getSize());
-        response.setFileType(file.getContentType());
-        response.setObjectName(storedFile.objectName());
-        response.setMetadata(metadata);
-
-        logger.info("Document upload SUCCESS: {}", originalFileName);
-        return response;
-    }
-
-    public FileUploadResponse uploadThumbnail(MultipartFile file) throws IOException {
-        String originalFileName = file.getOriginalFilename();
-        logger.info("Thumbnail upload started: {}, size: {}", originalFileName, file.getSize());
-
-        fileValidationService.validateContentTypeAndSize(
-                file,
-                ALLOWED_IMAGE_TYPES,
-                MAX_FILE_SIZE,
-                "Invalid file type. Allowed types: " + ALLOWED_IMAGE_TYPES,
-                "INVALID_FILE_TYPE",
-                "File size exceeds maximum allowed size of 50MB",
-                "FILE_SIZE_EXCEEDED",
-                "file");
-        fileValidationService.validateImageExtension(
-                file,
-                ALLOWED_IMAGE_EXTENSIONS,
-                "Invalid image extension. Allowed extensions: " + ALLOWED_IMAGE_EXTENSIONS,
-                "INVALID_IMAGE_EXTENSION",
-                "file");
-        fileValidationService.validateImageSignature(
-                file,
-                "Uploaded file is not a valid image",
-                "INVALID_IMAGE_CONTENT",
-                "Could not read uploaded image",
+        // Validate tham số upload
+        fileValidationService.validateDirectUploadParams(
+                request.getFileName(),
+                request.getContentType(),
+                request.getFileSize(),
+                allowedTypes,
+                allowedExtensions,
+                maxSize,
                 "file");
 
-        StoredFile storedFile = storageProvider.uploadFile(file, storageProperties.getThumbnailsFolder());
+        String sanitizedFilename = sanitizeFileName(request.getFileName());
+        String objectName = folder + UUID.randomUUID() + "_" + sanitizedFilename;
+        int expiryMinutes = minIOProperties.getPresignedUploadExpiryMinutes();
 
-        FileUploadResponse response = new FileUploadResponse();
-        response.setFileUrl(storedFile.fileUrl());
-        response.setFileName(originalFileName);
-        response.setFileSize(file.getSize());
-        response.setFileType(file.getContentType());
-        response.setObjectName(storedFile.objectName());
+        logger.info("Generating presigned upload URL: objectName={}, size={}, contentType={}, expiry={}m",
+                objectName, request.getFileSize(), request.getContentType(), expiryMinutes);
 
-        logger.info("Thumbnail upload SUCCESS: {}", originalFileName);
-        return response;
+        String uploadUrl = storageProvider.generatePresignedUploadUrl(
+                objectName,
+                request.getContentType(),
+                expiryMinutes);
+
+        return new PresignedUploadResponse(
+                uploadUrl,
+                objectName,
+                sanitizedFilename,
+                request.getFileSize(),
+                request.getContentType(),
+                expiryMinutes);
     }
 
-    public FileDownloadResult downloadFile(String objectName) throws IOException {
-        logger.info("Downloading file: {}", objectName);
-        String normalizedObjectName = URLDecoder.decode(objectName, StandardCharsets.UTF_8).replaceFirst("^/", "");
-        if (!storageProvider.fileExists(normalizedObjectName)) {
-            logger.warn("File not found: {}", normalizedObjectName);
-            throw new NotFoundException("File not found: " + normalizedObjectName, "FILE_NOT_FOUND", "objectName");
-        }
-
-        Resource resource = new InputStreamResource(storageProvider.downloadFileAsStream(normalizedObjectName));
-        String filename = extractFilename(normalizedObjectName);
-        logger.info("File download SUCCESS: {}", normalizedObjectName);
-        return new FileDownloadResult(resource, filename);
-    }
-
+    /**
+     * Xóa file khỏi Storage
+     */
     public FileDeleteResponse deleteFile(String objectName) throws IOException {
-        logger.info("Deleting file: {}", objectName);
+        logger.info("Deleting file from storage: {}", objectName);
         if (!storageProvider.fileExists(objectName)) {
             logger.warn("File not found for deletion: {}", objectName);
             throw new NotFoundException("File not found: " + objectName, "FILE_NOT_FOUND", "objectName");
@@ -175,15 +153,39 @@ public class FileUploadApplicationService {
         return new FileDeleteResponse(true, "File deleted successfully", objectName);
     }
 
-    private String extractFilename(String objectName) {
-        String filename = objectName;
-        if (objectName.contains("/")) {
-            filename = objectName.substring(objectName.lastIndexOf("/") + 1);
+    /**
+     * Bóc tách metadata từ file đã upload trên MinIO (dành cho client muốn pre-fill thông tin)
+     */
+    public FileMetadataSummary extractMetadataFromStorage(String objectName) {
+        if (objectName == null || objectName.isBlank()) {
+            throw new BadRequestException("Object name cannot be empty", "OBJECT_NAME_EMPTY", "objectName");
         }
-        if (filename.contains("_")) {
-            int firstUnderscore = filename.indexOf("_");
-            filename = filename.substring(firstUnderscore + 1);
+        if (!storageProvider.fileExists(objectName)) {
+            throw new NotFoundException("File not found on storage: " + objectName, "FILE_NOT_FOUND", "objectName");
         }
-        return filename;
+
+        try (InputStream inputStream = storageProvider.downloadFileAsStream(objectName)) {
+            String filename = sanitizeFileName(objectName);
+            return tikaMetadataService.extractMetadataSummary(inputStream, filename);
+        } catch (Exception e) {
+            logger.warn("Could not extract metadata for {}: {}", objectName, e.getMessage());
+            return new FileMetadataSummary();
+        }
+    }
+
+    private String sanitizeFileName(String fileName) {
+        if (fileName == null || fileName.isBlank()) {
+            return "unnamed_file";
+        }
+        // Loại bỏ đường dẫn thư mục và ký tự đặc biệt nguy hiểm
+        String simpleName = fileName;
+        if (simpleName.contains("\\")) {
+            simpleName = simpleName.substring(simpleName.lastIndexOf('\\') + 1);
+        }
+        if (simpleName.contains("/")) {
+            simpleName = simpleName.substring(simpleName.lastIndexOf('/') + 1);
+        }
+        String clean = simpleName.replaceAll("[^a-zA-Z0-9._-]", "_");
+        return clean.length() > 120 ? clean.substring(clean.length() - 120) : clean;
     }
 }
