@@ -8,6 +8,7 @@ public class UserResponse {
     private String phone;
     private String role;
     private String avatarObjectName;
+    private String avatarUrl;
 
     public Long getId() {
         return id;
@@ -63,5 +64,13 @@ public class UserResponse {
 
     public void setAvatarObjectName(String avatarObjectName) {
         this.avatarObjectName = avatarObjectName;
+    }
+
+    public String getAvatarUrl() {
+        return avatarUrl;
+    }
+
+    public void setAvatarUrl(String avatarUrl) {
+        this.avatarUrl = avatarUrl;
     }
 }

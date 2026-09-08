@@ -3,6 +3,7 @@ package com.studydocs.manager.application.user.usecase;
 import com.studydocs.manager.config.StorageProperties;
 import com.studydocs.manager.dto.user.UserResponse;
 import com.studydocs.manager.entity.User;
+import com.studydocs.manager.exception.BadRequestException;
 import com.studydocs.manager.exception.NotFoundException;
 import com.studydocs.manager.exception.ServiceUnavailableException;
 import com.studydocs.manager.repository.UserRepository;
@@ -11,6 +12,8 @@ import com.studydocs.manager.service.user.UserResponseMapper;
 import com.studydocs.manager.storage.StorageProvider;
 import com.studydocs.manager.storage.StoredFile;
 import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -37,6 +40,8 @@ public class AvatarUseCase {
 
     private static final long MAX_AVATAR_SIZE = 5 * 1024 * 1024;
 
+    private static final Logger logger = LoggerFactory.getLogger(AvatarUseCase.class);
+
     private final UserRepository userRepository;
     private final StorageProvider storageProvider;
     private final StorageProperties storageProperties;
@@ -54,6 +59,40 @@ public class AvatarUseCase {
         this.storageProperties = storageProperties;
         this.userResponseMapper = userResponseMapper;
         this.fileValidationService = fileValidationService;
+    }
+
+    /**
+     * Cập nhật avatar từ objectName đã upload lên MinIO bằng Presigned URL
+     */
+    @Transactional
+    public UserResponse updateAvatarFromStorage(String username, String avatarObjectName) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new NotFoundException("User not found", "USER_NOT_FOUND", "username"));
+
+        if (avatarObjectName == null || avatarObjectName.isBlank()) {
+            throw new BadRequestException("Avatar object name cannot be empty", "AVATAR_OBJECT_NAME_EMPTY", "avatarObjectName");
+        }
+
+        // 1. Kiểm tra file có thật trên MinIO không
+        if (!storageProvider.fileExists(avatarObjectName)) {
+            throw new BadRequestException("Avatar file not found on storage: " + avatarObjectName, "FILE_NOT_FOUND_ON_STORAGE", "avatarObjectName");
+        }
+
+        // 2. Xóa avatar cũ trên MinIO nếu có để giải phóng dung lượng
+        if (user.getAvatarObjectName() != null && !user.getAvatarObjectName().isEmpty()
+                && !user.getAvatarObjectName().equals(avatarObjectName)) {
+            try {
+                storageProvider.deleteFile(user.getAvatarObjectName());
+            } catch (IOException e) {
+                logger.warn("Failed to delete old avatar file {}: {}", user.getAvatarObjectName(), e.getMessage());
+            }
+        }
+
+        // 3. Cập nhật và lưu vào DB
+        user.setAvatarObjectName(avatarObjectName);
+        User updatedUser = userRepository.save(user);
+
+        return userResponseMapper.toResponse(updatedUser);
     }
 
     @Transactional

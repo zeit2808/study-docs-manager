@@ -45,8 +45,19 @@ public class ProfileController {
         UserResponse updated = userApplicationService.updateCurrentProfile(username, request);
         return ResponseEntity.ok(updated);
     }
+    @PutMapping("/avatar")
+    @Operation(summary = "Update avatar with presigned uploaded object", description = "Update user avatar by providing the object name of the image previously uploaded directly to MinIO.")
+    @PreAuthorize("hasAnyRole('ADMIN','USER')")
+    public ResponseEntity<UserResponse> updateAvatarFromStorage(
+            Authentication authentication,
+            @Valid @RequestBody com.studydocs.manager.dto.user.AvatarUpdateRequest request) {
+        String username = authentication.getName();
+        UserResponse updated = userApplicationService.updateAvatarFromStorage(username, request.getAvatarObjectName());
+        return ResponseEntity.ok(updated);
+    }
+
     @PostMapping(value = "/avatar", consumes = "multipart/form-data")
-    @Operation(summary = "Upload avatar")
+    @Operation(summary = "Upload avatar (Multipart fallback)")
     @PreAuthorize("hasAnyRole('ADMIN','USER')")
     public ResponseEntity<UserResponse> uploadAvatar(
             Authentication authentication,

@@ -77,6 +77,10 @@ public class UserApplicationService {
         return avatarUseCase.updateAvatar(username, file);
     }
 
+    public UserResponse updateAvatarFromStorage(String username, String avatarObjectName) {
+        return avatarUseCase.updateAvatarFromStorage(username, avatarObjectName);
+    }
+
     public void changePassword(ChangePasswordRequest request) {
         changePasswordUseCase.execute(request);
     }
