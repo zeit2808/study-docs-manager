@@ -138,7 +138,6 @@ public class PasswordResetService {
         }
     }
 
-    @Transactional
     public User resetPassword(ResetPasswordRequest request) {
         if (!request.getNewPassword().equals(request.getConfirmNewPassword())) {
             throw new BadRequestException(
@@ -148,40 +147,85 @@ public class PasswordResetService {
             );
         }
 
-        Optional<User> userOptional =
-                userRepository.findByEmailForUpdate(request.getEmail().trim());
+        String email = request.getEmail().trim();
 
-        if (userOptional.isEmpty()) {
-            throw invalidResetCode();
-        }
-
-        User user = userOptional.get();
-
-        PasswordResetToken token = passwordResetTokenRepository
-                .findTop1ByUserAndExpiredAtAfterOrderByCreatedAtDesc(
-                        user,
-                        LocalDateTime.now()
-                )
-                .orElseThrow(this::invalidResetCode);
-
-        if (token.getAttemptCount() >= OTP_MAX_ATTEMPTS) {
-            passwordResetTokenRepository.deleteByUser(user);
-            throw invalidResetCode();
-        }
-
-        if (!passwordEncoder.matches(request.getOtp(), token.getOtpHash())) {
-            token.incrementAttemptCount();
-
-            if (token.getAttemptCount() >= OTP_MAX_ATTEMPTS) {
-                passwordResetTokenRepository.deleteByUser(user);
-            } else {
-                passwordResetTokenRepository.save(token);
+        // Thực thi kiểm tra và cập nhật OTP trong transaction để đảm bảo attempt_count luôn được COMMIT vào DB
+        ResetPasswordResult result = transactionTemplate.execute(status -> {
+            Optional<User> userOptional = userRepository.findByEmailForUpdate(email);
+            if (userOptional.isEmpty()) {
+                return ResetPasswordResult.invalid();
             }
 
+            User user = userOptional.get();
+
+            Optional<PasswordResetToken> tokenOptional = passwordResetTokenRepository
+                    .findTop1ByUserAndExpiredAtAfterOrderByCreatedAtDesc(
+                            user,
+                            LocalDateTime.now()
+                    );
+
+            if (tokenOptional.isEmpty()) {
+                return ResetPasswordResult.invalid();
+            }
+
+            PasswordResetToken token = tokenOptional.get();
+
+            // Nếu đã vượt quá số lần thử từ trước
+            if (token.getAttemptCount() >= OTP_MAX_ATTEMPTS) {
+                passwordResetTokenRepository.deleteByUser(user);
+                return ResetPasswordResult.attemptsExceeded();
+            }
+
+            // Kiểm tra mã OTP
+            if (!passwordEncoder.matches(request.getOtp(), token.getOtpHash())) {
+                token.incrementAttemptCount();
+                if (token.getAttemptCount() >= OTP_MAX_ATTEMPTS) {
+                    passwordResetTokenRepository.deleteByUser(user);
+                    return ResetPasswordResult.attemptsExceeded();
+                } else {
+                    passwordResetTokenRepository.save(token);
+                    int remaining = OTP_MAX_ATTEMPTS - token.getAttemptCount();
+                    return ResetPasswordResult.wrongOtp(remaining);
+                }
+            }
+
+            // Kiểm tra mật khẩu mới không được trùng mật khẩu cũ
+            if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+                return ResetPasswordResult.samePassword();
+            }
+
+            // Mọi điều kiện hợp lệ: Cập nhật mật khẩu mới và tăng tokenVersion
+            user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+            user.incrementTokenVersion();
+
+            User savedUser = userRepository.save(user);
+            passwordResetTokenRepository.deleteByUser(user);
+
+            return ResetPasswordResult.success(savedUser);
+        });
+
+        // Xử lý ném Exception SAU KHI Transaction đã COMMIT vào MySQL thành công
+        if (result == null || result.isInvalid()) {
             throw invalidResetCode();
         }
 
-        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+        if (result.isAttemptsExceeded()) {
+            throw new BadRequestException(
+                    "Too many failed attempts. This reset code has been invalidated. Please request a new one.",
+                    "OTP_ATTEMPTS_EXCEEDED",
+                    "otp"
+            );
+        }
+
+        if (result.isWrongOtp()) {
+            throw new BadRequestException(
+                    "Invalid reset code. You have " + result.remainingAttempts() + " attempt(s) remaining.",
+                    "INVALID_RESET_CODE",
+                    "otp"
+            );
+        }
+
+        if (result.isSamePassword()) {
             throw new BadRequestException(
                     "New password must be different from current password",
                     "SAME_PASSWORD",
@@ -189,18 +233,10 @@ public class PasswordResetService {
             );
         }
 
-        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
-
-        // Vô hiệu tất cả JWT cũ ngay sau đổi password.
-        user.incrementTokenVersion();
-
-        User savedUser = userRepository.save(user);
-        passwordResetTokenRepository.deleteByUser(user);
-
         // Gửi email thông báo mật khẩu thay đổi qua luồng ngầm bất đồng bộ
-        emailService.sendPasswordChangedEmailAsync(user.getEmail());
+        emailService.sendPasswordChangedEmailAsync(result.user().getEmail());
 
-        return savedUser;
+        return result.user();
     }
 
     private BadRequestException invalidResetCode() {
@@ -221,4 +257,44 @@ public class PasswordResetService {
     }
 
     private record OtpDispatchPayload(Long userId, String email, String otp) {}
+
+    private record ResetPasswordResult(
+            Status status,
+            User user,
+            int remainingAttempts
+    ) {
+        enum Status {
+            SUCCESS,
+            INVALID,
+            WRONG_OTP,
+            ATTEMPTS_EXCEEDED,
+            SAME_PASSWORD
+        }
+
+        static ResetPasswordResult success(User user) {
+            return new ResetPasswordResult(Status.SUCCESS, user, 0);
+        }
+
+        static ResetPasswordResult invalid() {
+            return new ResetPasswordResult(Status.INVALID, null, 0);
+        }
+
+        static ResetPasswordResult wrongOtp(int remainingAttempts) {
+            return new ResetPasswordResult(Status.WRONG_OTP, null, remainingAttempts);
+        }
+
+        static ResetPasswordResult attemptsExceeded() {
+            return new ResetPasswordResult(Status.ATTEMPTS_EXCEEDED, null, 0);
+        }
+
+        static ResetPasswordResult samePassword() {
+            return new ResetPasswordResult(Status.SAME_PASSWORD, null, 0);
+        }
+
+        boolean isSuccess() { return status == Status.SUCCESS; }
+        boolean isInvalid() { return status == Status.INVALID; }
+        boolean isWrongOtp() { return status == Status.WRONG_OTP; }
+        boolean isAttemptsExceeded() { return status == Status.ATTEMPTS_EXCEEDED; }
+        boolean isSamePassword() { return status == Status.SAME_PASSWORD; }
+    }
 }
